@@ -251,32 +251,12 @@ function wtGoBack() {
   renderBreadcrumb();
 }
 
-// Shrink font size until the text fits the container width without clipping.
-// Starts at 20 vmin and steps down in 0.5 vmin increments.
-function fitWtMain(el) {
-  const container = document.getElementById('wheel-wordtree');
-  if (!container || !container.clientWidth) return;
-  const maxW = container.clientWidth * 0.94;
-  let size = 20;
-  // Force single-line measurement so scrollWidth is meaningful
-  el.style.whiteSpace = 'nowrap';
-  el.style.fontSize   = size + 'vmin';
-  while (el.scrollWidth > maxW && size > 3.5) {
-    size -= 0.5;
-    el.style.fontSize = size + 'vmin';
-  }
-  // Restore natural wrapping so the element can grow vertically if needed
-  el.style.whiteSpace = '';
-}
 
 function renderWordTree() {
   const total = wtItems.length;
   wtIdx = Math.max(0, Math.min(wtIdx, total - 1));
 
-  const itemAt = off => {
-    const i = wtIdx + off;
-    return (i >= 0 && i < total) ? wtItems[i] : '';
-  };
+  const itemAt = off => wtItems[((wtIdx + off) % total + total) % total];
 
   document.getElementById('wt-p2').textContent = itemAt(-2);
   document.getElementById('wt-p1').textContent = itemAt(-1);
@@ -285,11 +265,7 @@ function renderWordTree() {
   const current = itemAt(0);
   mainEl.textContent = current;
   mainEl.classList.toggle('wt-back', current === WT_BACK);
-  if (current === WT_BACK) {
-    mainEl.style.fontSize = ''; // let CSS .wt-back rule handle it
-  } else {
-    fitWtMain(mainEl);
-  }
+  mainEl.style.fontSize = ''; // always let CSS control the size
 
   document.getElementById('wt-n1').textContent = itemAt(+1);
   document.getElementById('wt-n2').textContent = itemAt(+2);
@@ -318,10 +294,7 @@ function flashWordTree() {
 function renderSpelling() {
   const total = spItems.length;
   spIdx = ((spIdx % total) + total) % total;
-  const itemAt = off => {
-    const i = spIdx + off;
-    return (i >= 0 && i < total) ? spItems[i] : '';
-  };
+  const itemAt = off => spItems[((spIdx + off) % total + total) % total];
   document.getElementById('l-p2').textContent = itemAt(-2);
   document.getElementById('l-p1').textContent = itemAt(-1);
   const mainEl = document.getElementById('letter-main');
