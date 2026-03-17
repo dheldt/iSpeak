@@ -1,0 +1,600 @@
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #000;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── Main area: cam panel + wheel side by side ────────────── */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+}
+
+/* ── Camera panel (left) ──────────────────────────────────── */
+#cam-panel {
+  flex: 0 0 35%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 1rem;
+  border-right: 1px solid #1a1a1a;
+}
+
+#cam-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4/3;
+  background: #0a0a0a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* raw video is hidden — canvas draws the mirrored+annotated feed */
+#cam { display: none; }
+
+#overlay {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 6px;
+}
+
+/* Gaze indicator dots inside cam panel */
+#gaze-ind {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+#gaze-ind.show { opacity: 1; }
+
+.gdot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #2a2a2a;
+  transition: background 0.1s;
+}
+.gdot.lit { background: #4af; }
+
+/* Eye open/closed indicator */
+#eye-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  font-size: 1.8vmin;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  border: 2px solid #222;
+  color: #444;
+  background: #0a0a0a;
+}
+#eye-indicator .eye-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #222;
+  transition: background 0.1s;
+  flex-shrink: 0;
+}
+#eye-indicator.open  { border-color: #2a6a2a; color: #6f6; background: #0d1a0d; }
+#eye-indicator.open  .eye-dot { background: #6f6; }
+#eye-indicator.closed { border-color: #2a4a8a; color: #6af; background: #0d0d1a; }
+#eye-indicator.closed .eye-dot { background: #6af; }
+
+/* Hold-to-switch-mode indicator */
+#hold-indicator {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+#hold-label {
+  font-size: 1.3vmin;
+  color: #444;
+  text-align: center;
+}
+#hold-track {
+  height: 5px;
+  background: #1a1a1a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+#hold-bar {
+  height: 100%;
+  width: 0%;
+  background: #44f;
+  border-radius: 3px;
+}
+#hold-indicator.active #hold-label { color: #88f; }
+#hold-indicator.active #hold-bar   { background: #44f; }
+#hold-indicator.done   #hold-bar   { background: #4af; }
+
+/* Sound toggle button */
+#sound-btn {
+  padding: 0.4rem 1rem;
+  background: #1a1a2a;
+  border: 1px solid #334;
+  color: #88a;
+  font-size: 1.6vmin;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+}
+#sound-btn:hover { background: #222244; border-color: #558; color: #aaf; }
+#sound-btn.off   { background: #1a1a1a; border-color: #333; color: #444; }
+
+/* Calibrate button */
+#calib-btn {
+  padding: 0.4rem 1rem;
+  background: #1a1a2a;
+  border: 1px solid #334;
+  color: #88a;
+  font-size: 1.6vmin;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+}
+#calib-btn:hover  { background: #222244; border-color: #558; color: #aaf; }
+#calib-btn.active { background: #2a1a1a; border-color: #a44; color: #f88; }
+
+/* Label under cam */
+#cam-label {
+  font-size: 1.3vmin;
+  color: #333;
+  text-align: center;
+}
+
+/* ── Letter wheel (centre) ────────────────────────────────── */
+#wheel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  position: relative;
+}
+
+/* Spelling sub-panel wrapper — preserves the original column-flex layout */
+#wheel-spelling {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 0.2rem;
+}
+
+/* ── Word-tree sub-panel ──────────────────────────────────── */
+#wheel-wordtree {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 0.3rem;
+}
+
+.wt-adj {
+  font-size: 5vmin;
+  color: #2a2a2a;
+  line-height: 1.2;
+  max-width: 90%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wt-adj.near {
+  font-size: 8vmin;
+  color: #555;
+}
+
+#wt-main {
+  font-size: 16vmin;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  transition: color 0.2s;
+}
+#wt-main.flash    { color: #4af; }
+#wt-main.wt-back  { color: #666; font-size: 7vmin; font-weight: 400; }
+
+#wheel.inactive #wt-main,
+#wheel.inactive .wt-adj { color: #222 !important; }
+
+/* ── Breadcrumb ───────────────────────────────────────────── */
+#wt-breadcrumb {
+  display: none;
+  position: absolute;
+  bottom: 0.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.4vmin;
+  color: #3a3a5a;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.adj {
+  font-size: 7vmin;
+  color: #2a2a2a;
+  line-height: 1.1;
+}
+.adj.near {
+  font-size: 11vmin;
+  color: #555;
+}
+
+#letter-main {
+  font-size: 38vmin;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  transition: color 0.2s, font-size 0.1s;
+}
+#letter-main.flash { color: #4af; }
+#letter-main.ctrl  { font-size: 14vmin; }
+
+/* ── Inactive mode overlay ────────────────────────────────── */
+#wheel.inactive #letter-main,
+#wheel.inactive .adj { color: #222 !important; }
+
+#mode-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.8vmin;
+  color: #555;
+  text-align: center;
+  line-height: 1.6;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#wheel.inactive #mode-hint { opacity: 1; }
+
+/* ── Mode badge ───────────────────────────────────────────── */
+#mode-badge {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.8rem;
+  font-size: 1.5vmin;
+  padding: 0.2rem 0.6rem;
+  border-radius: 3px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  user-select: none;
+}
+#mode-badge:hover { filter: brightness(1.4); }
+#mode-badge.active   { background: #1a3a1a; color: #6f6; border: 1px solid #2a6a2a; }
+#mode-badge.inactive { background: #2a1a1a; color: #a55; border: 1px solid #5a2a2a; }
+#mode-badge.wordtree { background: #1a1a3a; color: #88f; border: 1px solid #2a2a8a; }
+
+/* ── Text panel (right column) ────────────────────────────── */
+#text-panel {
+  flex: 0 0 28%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 2rem 1.2rem 1.2rem;
+  border-left: 1px solid #1a1a1a;
+  overflow: hidden;
+}
+
+#text-panel-label {
+  font-size: 1.3vmin;
+  color: #333;
+  margin-bottom: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+#text-preview {
+  flex: 1;
+  font-size: 3.2vmin;
+  line-height: 1.5;
+  letter-spacing: 0.05em;
+  word-break: break-word;
+  overflow-y: auto;
+  color: #fff;
+}
+
+#cursor {
+  display: inline-block;
+  width: 0.06em;
+  height: 1em;
+  background: #fff;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: blink-cur 1s step-end infinite;
+}
+@keyframes blink-cur { 50% { opacity: 0; } }
+
+/* ── Status bar ───────────────────────────────────────────── */
+#status {
+  position: fixed;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.4vmin;
+  color: #555;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+/* ── Settings (caregiver, mouse-only) ─────────────────────── */
+#settings {
+  position: fixed;
+  top: 0.5rem;
+  right: 0.8rem;
+  z-index: 10;
+}
+
+#settings-btn {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #666;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 1.4vmin;
+}
+#settings-btn:hover { color: #aaa; border-color: #555; }
+
+#settings-panel {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 1rem;
+  min-width: 240px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#settings-panel.open { display: block; }
+
+.s-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  font-size: 1.35vmin;
+  color: #999;
+}
+.s-row label { flex: 1; }
+.s-row select { background: #1a1a1a; border: 1px solid #333; color: #aaa; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 1.2vmin; }
+.s-row input[type=range] { flex: 2; accent-color: #4af; }
+.s-row .val { min-width: 3.5em; text-align: right; font-size: 1.2vmin; color: #555; }
+
+/* ── Phrase history ───────────────────────────────────────── */
+#text-history {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.hist-entry {
+  font-size: 2.2vmin;
+  color: #333;
+  line-height: 1.4;
+  padding: 0.3rem 0;
+  border-top: 1px solid #111;
+  word-break: break-word;
+}
+.hist-entry.spoken { color: #355; }
+.hist-entry.cleared { color: #2a2a2a; text-decoration: line-through; }
+
+/* ── Speak button ─────────────────────────────────────────── */
+#speak-btn {
+  margin-top: 1rem;
+  padding: 0.7rem 1.2rem;
+  background: #1a3a1a;
+  border: 1px solid #2a6a2a;
+  color: #6f6;
+  font-size: 2.5vmin;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.05em;
+}
+#speak-btn:hover { background: #234a23; border-color: #4a8a4a; }
+#speak-btn:active { background: #2a6a2a; }
+
+/* ── Calibration overlay ─────────────────────────────────── */
+#calib-overlay {
+  display: none;
+  position: fixed;
+  top: 0; bottom: 0;
+  left: 35%; right: 0;   /* leave the camera panel (35%) uncovered */
+  background: rgba(0,0,0,0.82);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+#calib-ov-card {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 3rem 4rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 340px;
+}
+#calib-ov-title {
+  font-size: 1.8vmin;
+  color: #666;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+#calib-ov-instr {
+  font-size: 3.5vmin;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.4;
+}
+#calib-ov-track {
+  height: 6px;
+  background: #222;
+  border-radius: 3px;
+  overflow: hidden;
+}
+#calib-ov-bar {
+  height: 100%;
+  width: 0%;
+  background: #4af;
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+#calib-ov-start {
+  padding: 0.6rem 2rem;
+  background: #1a3a1a;
+  border: 1px solid #2a6a2a;
+  color: #6f6;
+  font-size: 2vmin;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+}
+#calib-ov-start:hover { background: #234a23; border-color: #4a8a4a; }
+#calib-ov-start.hidden { display: none; }
+
+#calib-ov-cancel {
+  background: none;
+  border: 1px solid #333;
+  color: #555;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.4vmin;
+}
+#calib-ov-cancel:hover { color: #aaa; border-color: #555; }
+
+/* ── Keyboard hint ────────────────────────────────────────── */
+#kb-hint {
+  position: fixed;
+  bottom: 0.5rem;
+  left: 0.8rem;
+  font-size: 1.2vmin;
+  color: #222;
+}
+
+/* ── Portrait-mode hint ───────────────────────────────────── */
+#portrait-hint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 4vmin;
+  color: #aaa;
+  line-height: 1.6;
+  padding: 2rem;
+}
+#portrait-icon {
+  font-size: 15vmin;
+  display: block;
+  margin-bottom: 1rem;
+  animation: rotate-hint 2s ease-in-out infinite;
+}
+@keyframes rotate-hint {
+  0%   { transform: rotate(0deg);   }
+  40%  { transform: rotate(90deg);  }
+  60%  { transform: rotate(90deg);  }
+  100% { transform: rotate(0deg);   }
+}
+@media (orientation: portrait) {
+  #portrait-hint { display: flex; }
+}
+
+/* ── Mode-change confirmation modal ──────────────────────── */
+#mode-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+#mode-modal.open { display: flex; }
+#mode-modal-card {
+  background: #111;
+  border: 2px solid #44f;
+  border-radius: 12px;
+  padding: 3rem 5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+#mode-modal-text {
+  font-size: 6vmin;
+  font-weight: 700;
+  color: #fff;
+}
+#mode-modal-hint {
+  font-size: 1.8vmin;
+  color: #666;
+}
+#mode-modal-track {
+  height: 6px;
+  background: #222;
+  border-radius: 3px;
+  overflow: hidden;
+}
+#mode-modal-bar {
+  height: 100%;
+  width: 100%;
+  background: #44f;
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+#footer {
+  position: fixed;
+  bottom: 0.5rem;
+  right: 0.8rem;
+  font-size: 1.2vmin;
+  color: #2a2a2a;
+  letter-spacing: 0.05em;
+}
+#footer a { color: #3a3a5a; text-decoration: none; }
+#footer a:hover { color: #88a; }

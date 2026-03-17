@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iSpeak</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="mode-badge" class="inactive">INAKTIV</div>
+  <div id="status">Kamera wird gestartet…</div>
+
+  <div id="main">
+
+    <!-- Camera panel (left) -->
+    <div id="cam-panel">
+      <div id="cam-wrap">
+        <video id="cam" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div id="eye-indicator">
+        <div class="eye-dot"></div>
+        <span id="eye-label">–</span>
+      </div>
+      <button id="calib-btn">Kalibrieren</button>
+      <div id="gaze-ind">
+        <div class="gdot" id="dot-up"  title="Blick oben"></div>
+        <div class="gdot" id="dot-mid" title="Blinzeln"></div>
+        <div class="gdot" id="dot-dn"  title="Blick unten"></div>
+      </div>
+      <button id="sound-btn">🔔 Sound AN</button>
+      <div id="hold-indicator">
+        <div id="hold-label">Geschlossen halten → Modus wechsel</div>
+        <div id="hold-track"><div id="hold-bar"></div></div>
+      </div>
+      <div id="cam-label">Augenverfolgung</div>
+    </div>
+
+    <!-- Letter wheel (centre) -->
+    <div id="wheel" class="inactive">
+
+      <!-- Spelling sub-panel -->
+      <div id="wheel-spelling">
+        <div class="adj" id="l-p2"></div>
+        <div class="adj near" id="l-p1"></div>
+        <div id="letter-main">A</div>
+        <div class="adj near" id="l-n1"></div>
+        <div class="adj" id="l-n2"></div>
+      </div>
+
+      <!-- Word-tree sub-panel -->
+      <div id="wheel-wordtree">
+        <div class="wt-adj" id="wt-p2"></div>
+        <div class="wt-adj near" id="wt-p1"></div>
+        <div id="wt-main"></div>
+        <div class="wt-adj near" id="wt-n1"></div>
+        <div class="wt-adj" id="wt-n2"></div>
+      </div>
+
+      <div id="mode-hint">Auge geschlossen halten<br>zum Modus wechseln</div>
+      <div id="wt-breadcrumb"></div>
+    </div>
+
+    <!-- Text panel (right) -->
+    <div id="text-panel">
+      <div id="text-panel-label">Text</div>
+      <div id="text-preview">
+        <span id="text-out"></span><span id="cursor"></span>
+      </div>
+      <button id="speak-btn">&#9654; Sprechen</button>
+      <div id="text-history"></div>
+    </div>
+
+  </div>
+
+  <!-- Settings (caregiver panel) -->
+  <div id="settings">
+    <button id="settings-btn">⚙ Settings</button>
+    <div id="settings-panel">
+      <div class="s-row">
+        <label>Auge</label>
+        <select id="s-eye">
+          <option value="right">Rechts</option>
+          <option value="left">Links</option>
+        </select>
+      </div>
+      <div class="s-row">
+        <label>Blick unten aktiv</label>
+        <input type="checkbox" id="s-gdown">
+      </div>
+      <div class="s-row">
+        <label>Scrollgeschwindigkeit</label>
+        <input type="range" id="s-gd" min="100" max="2000" step="50" value="700">
+        <span class="val" id="v-gd">700ms</span>
+      </div>
+      <div class="s-row">
+        <label>Blink min (ms)</label>
+        <input type="range" id="s-bmin" min="40" max="1000" step="20" value="400">
+        <span class="val" id="v-bmin">400ms</span>
+      </div>
+      <div class="s-row">
+        <label>Blink max (ms)</label>
+        <input type="range" id="s-bmax" min="200" max="2000" step="50" value="800">
+        <span class="val" id="v-bmax">800ms</span>
+      </div>
+      <div class="s-row">
+        <label>Modus-Haltezeit (ms)</label>
+        <input type="range" id="s-lblink" min="1000" max="6000" step="100" value="3000">
+        <span class="val" id="v-lblink">3000ms</span>
+      </div>
+      <div class="s-row">
+        <label>Gaze zone</label>
+        <input type="range" id="s-gz" min="0.02" max="0.15" step="0.005" value="0.06">
+        <span class="val" id="v-gz">0.060</span>
+      </div>
+      <div class="s-row">
+        <label>EAR threshold</label>
+        <input type="range" id="s-ear" min="0.05" max="0.45" step="0.01" value="0.18">
+        <span class="val" id="v-ear">0.18</span>
+      </div>
+      <div class="s-row">
+        <label>Close debounce (ms)</label>
+        <input type="range" id="s-cdeb" min="0" max="600" step="20" value="200">
+        <span class="val" id="v-cdeb">200ms</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="kb-hint">↑↓ Buchstabe wählen · Enter = auswählen · Keyboard-Fallback</div>
+  <div id="footer"><a href="https://github.com/dheldt/iSpeak/" target="_blank" rel="noopener">iSpeak</a> · Daniel Heldt · MIT License · 2026-03-17</div>
+
+  <!-- Portrait-mode hint -->
+  <div id="portrait-hint">
+    <div id="portrait-hint-text">
+      <div id="portrait-icon">⟳</div>
+      Bitte drehen Sie das Gerät ins Querformat
+    </div>
+  </div>
+
+  <!-- Mode-change confirmation modal -->
+  <div id="mode-modal">
+    <div id="mode-modal-card">
+      <div id="mode-modal-text">Modus wechseln?</div>
+      <div id="mode-modal-hint">Nochmal blinzeln = Ja · Blick/Timeout = Nein</div>
+      <div id="mode-modal-track"><div id="mode-modal-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Calibration wizard overlay -->
+  <div id="calib-overlay">
+    <div id="calib-ov-card">
+      <div id="calib-ov-title">Kalibrierung</div>
+      <div id="calib-ov-instr"></div>
+      <button id="calib-ov-start">Bereit →</button>
+      <div id="calib-ov-track"><div id="calib-ov-bar"></div></div>
+      <button id="calib-ov-cancel">Abbrechen</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="js/words.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
