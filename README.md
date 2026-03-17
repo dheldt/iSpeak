@@ -17,8 +17,12 @@ iSpeak offers two input modes plus an inactive state, cycled by holding the eye 
 ### Word tree mode (default active mode)
 A hierarchical word selection system. Navigate a tree of ~400 curated German words grouped by type (Häufig, Verb, Nomen, Adjektiv, Andere) and then by T9 letter group (abc, def, …). Look up to scroll, blink to select. Selecting a word appends it to the phrase.
 
+
+
 ### Letter spelling mode
 A two-level T9 wheel. First select a letter group (abc, def, ghi, jkl, mno, pqrs, tuv, wxyz), then pick the individual letter. Special actions (space, delete, clear, speak) are available at the top level.
+
+Built words can also be stored via "speichern". They are then available in word tree mode in the category "gespeichert". 
 
 ### Speaking
 Once a phrase is composed it can be spoken aloud via the browser's built-in text-to-speech (German, `de-DE`). A history of recent phrases is shown in the text panel.

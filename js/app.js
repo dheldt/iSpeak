@@ -17,7 +17,7 @@ const T9_GROUPS = [
 ];
 const T9_MAP      = Object.fromEntries(T9_GROUPS.map(g => [g.key, g.chars]));
 const T9_KEYS     = T9_GROUPS.map(g => g.key);
-const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen'];
+const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern'];
 const SP_TOP      = [...T9_KEYS, ...SP_SPECIALS];
 const SP_BACK     = '← Zurück';
 
@@ -57,6 +57,8 @@ function spSelectCurrent() {
 function spExecuteSpecial(c) {
   if (c === 'Sprechen') {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
+  } else if (c === 'Speichern') {
+    if (buf.trim()) { savePhrase(buf); }
   } else if (c === 'DEL') {
     buf = buf.slice(0, -1); renderText();
   } else if (c === 'CLR') {
@@ -83,6 +85,41 @@ function addHistory(text, type) {
   el.innerHTML = history.map(h =>
     `<div class="hist-entry ${h.type}">${h.text}</div>`
   ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Saved phrases  (persisted to localStorage)
+// ─────────────────────────────────────────────────────────────────────────
+const SAVED_KEY     = 'ispeak_saved';
+const WT_SAVED_CAT  = 'Gespeichert';
+
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch { return []; }
+}
+
+function savePhrase(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const saved = loadSaved().filter(s => s !== trimmed); // dedup
+  saved.unshift(trimmed);
+  localStorage.setItem(SAVED_KEY, JSON.stringify(saved));
+}
+
+// Return the T9 bucket key for the first character of a phrase, or null.
+function phraseT9Key(phrase) {
+  const first = (phrase[0] || '').toUpperCase();
+  return T9_GROUPS.find(g => g.chars.includes(first))?.key ?? null;
+}
+
+// Ordered list of T9 bucket keys that actually have saved phrases.
+function savedBucketKeys(saved) {
+  const seen = new Set(saved.map(phraseT9Key).filter(Boolean));
+  return T9_KEYS.filter(k => seen.has(k));
+}
+
+// Saved phrases whose first character falls in the given T9 bucket.
+function savedForBucket(saved, bucketKey) {
+  return saved.filter(p => phraseT9Key(p) === bucketKey);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -188,7 +225,7 @@ function wtReset() {
   wtLevel    = 0;
   wtCategory = null;
   wtBucket   = null;
-  wtItems    = [...Object.keys(WT_DATA), WT_SPEAK];
+  wtItems    = [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK];
   wtIdx      = 0;
   renderWordTree();
   renderBreadcrumb();
@@ -207,21 +244,36 @@ function wtSelectCurrent() {
   }
   if (wtLevel === 0) {
     wtCategory = chosen;
-    const buckets = Object.keys(WT_DATA[wtCategory]);
-    if (buckets.length === 1) {
-      // Skip bucket level — go straight to words
-      wtBucket = buckets[0];
-      wtLevel  = 2;
-      wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
+    if (chosen === WT_SAVED_CAT) {
+      const saved = loadSaved();
+      if (!saved.length) return;           // nothing saved yet — stay put
+      if (saved.length <= 10) {
+        wtBucket = WT_SAVED_CAT;
+        wtLevel  = 2;
+        wtItems  = [WT_BACK, ...saved];
+      } else {
+        wtLevel  = 1;
+        wtItems  = [WT_BACK, ...savedBucketKeys(saved)];
+      }
     } else {
-      wtLevel  = 1;
-      wtItems  = [WT_BACK, ...buckets];
+      const buckets = Object.keys(WT_DATA[wtCategory]);
+      if (buckets.length === 1) {
+        // Skip bucket level — go straight to words
+        wtBucket = buckets[0];
+        wtLevel  = 2;
+        wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
+      } else {
+        wtLevel  = 1;
+        wtItems  = [WT_BACK, ...buckets];
+      }
     }
     wtIdx = 0;
   } else if (wtLevel === 1) {
     wtBucket = chosen;
     wtLevel  = 2;
-    wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
+    wtItems  = wtCategory === WT_SAVED_CAT
+      ? [WT_BACK, ...savedForBucket(loadSaved(), chosen)]
+      : [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
     wtIdx    = 0;
   } else {
     // Level 2: actual word — append to buffer, then return to top level
@@ -236,15 +288,25 @@ function wtSelectCurrent() {
 }
 
 function wtGoBack() {
+  const rootItems = () => [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK];
   if (wtLevel === 2) {
-    wtLevel  = 1;
-    wtBucket = null;
-    wtItems  = [WT_BACK, ...Object.keys(WT_DATA[wtCategory])];
-    wtIdx    = 0;
+    // For Gespeichert with ≤10 entries we skipped level 1 — go straight to root.
+    if (wtCategory === WT_SAVED_CAT && loadSaved().length <= 10) {
+      wtLevel    = 0;
+      wtCategory = null;
+      wtItems    = rootItems();
+    } else {
+      wtLevel  = 1;
+      wtBucket = null;
+      wtItems  = wtCategory === WT_SAVED_CAT
+        ? [WT_BACK, ...savedBucketKeys(loadSaved())]
+        : [WT_BACK, ...Object.keys(WT_DATA[wtCategory])];
+    }
+    wtIdx = 0;
   } else if (wtLevel === 1) {
     wtLevel    = 0;
     wtCategory = null;
-    wtItems    = [...Object.keys(WT_DATA), WT_SPEAK];
+    wtItems    = rootItems();
     wtIdx      = 0;
   }
   renderWordTree();

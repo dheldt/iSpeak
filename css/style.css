@@ -230,7 +230,7 @@ body {
   transition: color 0.2s;
 }
 #wt-main.flash    { color: #4af; }
-#wt-main.wt-back  { color: #666; font-weight: 400; }
+#wt-main.wt-back  { font-weight: 400; }
 
 #wheel.inactive #wt-main,
 #wheel.inactive .wt-adj { color: #222 !important; }

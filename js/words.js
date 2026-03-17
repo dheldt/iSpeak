@@ -4,131 +4,121 @@
 const WT_DATA = {
 
   Häufig: {
-    'Häufig': ['du', 'ich', 'ja', 'nein'],
+    'Häufig': ['du', 'ich', 'ja', 'nein', 'bitte', 'danke', 'gut', 'hilfe', 'okay'],
   },
 
   Verb: {
     'abc': [
-      'anfangen','anrufen','antworten','atmen','aufhören','aufmachen',
-      'aufstehen','aufwachen','ausruhen','ausatmen',
-      'beenden','besuchen','bluten',
+      'anfangen','anrufen','antworten','atmen',
+      'aufhören','aufmachen','aufstehen','ausruhen',
+      'besuchen','bleiben',
     ],
     'def': [
-      'denken','drehen',
-      'einatmen','essen',
-      'fahren','fragen','frieren','fühlen',
+      'denken','drehen','duschen',
+      'einschlafen','essen',
+      'fahren','fernsehen','fragen','fühlen',
     ],
     'ghi': [
       'geben','gehen','genießen',
-      'halten','helfen','hören','husten',
+      'halten','helfen','hören',
     ],
     'jkl': [
       'kommen','können',
-      'lachen','laufen','legen','lesen','liegen',
+      'lachen','laufen','lesen','liegen',
     ],
     'mno': [
       'möchten','mögen','müssen',
-      'nehmen','nicken',
+      'nehmen',
       'öffnen',
     ],
     'pqrs': [
-      'reden','rufen',
-      'sagen','schlafen','schließen','schmerzen','schreiben',
-      'schlucken','schütteln','schwitzen','sehen','sitzen',
+      'reden','rufen','ruhen',
+      'sagen','schlafen','schreiben','sehen','sitzen','spielen',
       'sprechen','stehen','stoppen','suchen',
     ],
     'tuv': [
       'trinken',
-      'umdrehen','untersuchen',
+      'umdrehen',
       'verstehen',
-      'übergeben',
     ],
     'wxyz': [
-      'warten','waschen','weinen','wollen',
-      'zeigen','zuhören','zurückkommen',
+      'warten','waschen','wollen','wünschen',
+      'zeigen','zuhören',
     ],
   },
 
   Nomen: {
     'abc': [
-      'Allergie','Angst','Appetit','Arm','Arzt','Ärztin',
-      'Atem','Atemnot','Auge','Ausgang',
-      'Bad','Bauch','Bein','Behandlung','Bett',
-      'Blut','Blutdruck','Brille','Brot','Bruder',
+      'Abend','Arm','Arzt','Auge','Ausflug',
+      'Bein','Besuch','Bett','Brot','Bruder','Buch',
     ],
     'def': [
-      'Decke','Diagnose','Durst',
-      'Essen',
-      'Familie','Fieber','Frau','Freund','Fuß',
+      'Decke','Durst',
+      'Enkel','Essen',
+      'Familie','Fenster','Fernseher','Foto','Freude','Freund','Frau',
     ],
     'ghi': [
-      'Geschwister','Gelenk',
-      'Hals','Hand','Haus','Herz','Hilfe','Hüfte','Hunger',
-      'Infusion',
+      'Garten','Gespräch','Geschwister',
+      'Hand','Haus','Herz','Hilfe','Hunger',
     ],
     'jkl': [
-      'Kind','Kissen','Knie','Kopf','Kopfschmerzen','Körper',
-      'Krankenhaus','Krankenschwester',
-      'Leber','Logopäde','Lunge',
+      'Kaffee','Kind','Kissen','Kopf','Körper','Küche',
+      'Licht','Luft',
     ],
     'mno': [
-      'Magen','Mann','Medikament','Mund','Muskel','Mutter',
-      'Nacht','Nase','Neffe','Nichte','Notfall',
-      'Ohr','Onkel','Operation',
+      'Mann','Morgen','Mund','Musik','Mutter',
+      'Nacht','Name',
+      'Obst','Oma','Opa',
     ],
     'pqrs': [
-      'Partner','Pfleger','Physiotherapie','Puls',
-      'Rezept','Rollstuhl','Röntgen','Rücken',
-      'Schmerz','Schmerzmittel','Schulter','Schwester',
-      'Schwindel','Schwellung','Sohn','Spritze','Stuhl',
+      'Pause','Pfleger',
+      'Radio','Ruhe','Rücken',
+      'Schmerz','Schwester','Sohn','Spaziergang','Stuhl','Suppe',
     ],
     'tuv': [
-      'Tag','Tablette','Tante','Tee','Tochter','Toilette',
-      'Uhr','Untersuchung',
+      'Tag','Tasse','Tee','Telefon','Tisch','Tochter','Toilette','Tür',
+      'Uhr',
       'Vater',
     ],
     'wxyz': [
-      'Wasser','Woche','Wunde',
-      'Zahn','Zimmer','Zunge',
+      'Wasser','Woche','Wunsch',
+      'Zimmer',
     ],
   },
 
   Adjektiv: {
     'abc': [
       'allein','ängstlich','aufgeregt',
-      'benommen','besser','besorgt',
+      'besser','besorgt',
     ],
     'def': [
-      'dankbar','deprimiert','dringend',
+      'dankbar','deprimiert','dringend','durstig',
       'erschöpft',
       'froh','frustriert',
     ],
     'ghi': [
-      'gefühllos','gereizt','geschwollen','glücklich','gut',
+      'gelangweilt','glücklich','gut',
       'hungrig',
     ],
     'jkl': [
-      'juckend',
-      'kalt','klar','krank','kribbelig',
-      'laut','leicht','leise',
+      'kalt','klar','krank',
+      'laut','leise',
     ],
     'mno': [
-      'matt','müde',
-      'nass','nötig',
+      'müde',
+      'nass',
     ],
     'pqrs': [
       'ruhig',
-      'schläfrig','schlecht','schlimm','schmerzhaft',
-      'schwach','schwindlig','stark','stechend','steif',
+      'schläfrig','schlecht','schmerzhaft','schwach',
     ],
     'tuv': [
-      'taub','traurig','trocken',
-      'übel','unangenehm','unklar','unwohl',
-      'verstanden','verwirrt',
+      'traurig','trocken',
+      'übel','unwohl',
     ],
     'wxyz': [
-      'warm','wichtig','wund',
-      'zittrig','zufrieden','zuversichtlich',
+      'warm','wichtig',
+      'zufrieden','zuversichtlich',
     ],
   },
 
