@@ -18,21 +18,19 @@
       <div id="cam-wrap">
         <video id="cam" autoplay muted playsinline></video>
         <canvas id="overlay"></canvas>
+        <div id="hold-indicator">
+          <div id="hold-label">Geschlossen halten → Modus wechsel</div>
+          <div id="hold-track"><div id="hold-bar"></div></div>
+        </div>
       </div>
       <div id="eye-indicator">
         <div class="eye-dot"></div>
         <span id="eye-label">–</span>
       </div>
-      <button id="calib-btn">Kalibrieren</button>
       <div id="gaze-ind">
         <div class="gdot" id="dot-up"  title="Blick oben"></div>
         <div class="gdot" id="dot-mid" title="Blinzeln"></div>
         <div class="gdot" id="dot-dn"  title="Blick unten"></div>
-      </div>
-      <button id="sound-btn">🔔 Sound AN</button>
-      <div id="hold-indicator">
-        <div id="hold-label">Geschlossen halten → Modus wechsel</div>
-        <div id="hold-track"><div id="hold-bar"></div></div>
       </div>
       <div id="cam-label">Augenverfolgung</div>
     </div>
@@ -78,6 +76,12 @@
   <div id="settings">
     <button id="settings-btn">⚙ Settings</button>
     <div id="settings-panel">
+      <div class="s-row">
+        <button id="calib-btn" style="flex:1">Kalibrieren</button>
+      </div>
+      <div class="s-row">
+        <button id="sound-btn" style="flex:1">🔔 Sound AN</button>
+      </div>
       <div class="s-row">
         <label>Auge</label>
         <select id="s-eye">
@@ -129,6 +133,14 @@
 
   <div id="kb-hint">↑↓ Buchstabe wählen · Enter = auswählen · Keyboard-Fallback</div>
   <div id="footer"><a href="https://github.com/dheldt/iSpeak/" target="_blank" rel="noopener">iSpeak</a> · Daniel Heldt · MIT License · 2026-03-17</div>
+
+  <!-- Start splash (unlocks audio + camera on iOS) -->
+  <div id="start-splash">
+    <div id="start-card">
+      <div id="start-title">iSpeak</div>
+      <button id="start-btn">Tippen zum Starten</button>
+    </div>
+  </div>
 
   <!-- Portrait-mode hint -->
   <div id="portrait-hint">

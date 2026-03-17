@@ -766,7 +766,7 @@ function onResults(results) {
     if (!longHoldFired && holdPct >= 100) {
       longHoldFired = true;
       hi.classList.add('done');
-      playTone(440, 250, 0.3);
+      playToneEl('hold');
       if (modeModalOpen) {
         closeModeModal();
         cycleMode();
@@ -827,37 +827,96 @@ function onResults(results) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Audio feedback  (Web Audio API, no external files)
+// Audio feedback — HTMLAudioElement + WAV data-URIs
+//
+// Web Audio API (AudioContext) gets permanently suspended on iOS Safari once
+// the camera-permission dialog appears, and resume() outside a user gesture
+// is silently ignored — there is no recovery path.
+// HTMLAudioElement.play() does NOT have this problem: once unlocked via a
+// tap in the start-splash handler it stays playable for the lifetime of the
+// page without needing further user gestures.
 // ─────────────────────────────────────────────────────────────────────────
-let audioCtx = null;
 
-function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  return audioCtx;
+/** Build a mono 16-bit PCM WAV and return it as a data: URI. */
+function makeSineWav(freq, durationMs, vol) {
+  const SR     = 22050;
+  const frames = Math.ceil(SR * durationMs / 1000);
+  const fade   = Math.ceil(frames * 0.15);
+  const pcm    = new Int16Array(frames);
+  for (let i = 0; i < frames; i++) {
+    const env = i < fade ? i / fade : Math.min(1, (frames - i) / fade);
+    pcm[i] = Math.round(Math.sin(2 * Math.PI * freq * i / SR) * vol * 32767 * env);
+  }
+  const out  = new Uint8Array(44 + frames * 2);
+  const view = new DataView(out.buffer);
+  // RIFF/WAVE/fmt/data header
+  [0x52,0x49,0x46,0x46].forEach((b,i) => { out[i]    = b; }); // 'RIFF'
+  view.setUint32( 4, 36 + frames * 2, true);
+  [0x57,0x41,0x56,0x45].forEach((b,i) => { out[8+i]  = b; }); // 'WAVE'
+  [0x66,0x6d,0x74,0x20].forEach((b,i) => { out[12+i] = b; }); // 'fmt '
+  view.setUint32(16, 16,       true);   // subchunk size
+  view.setUint16(20,  1,       true);   // PCM
+  view.setUint16(22,  1,       true);   // mono
+  view.setUint32(24, SR,       true);   // sample rate
+  view.setUint32(28, SR * 2,   true);   // byte rate
+  view.setUint16(32,  2,       true);   // block align
+  view.setUint16(34, 16,       true);   // bits per sample
+  [0x64,0x61,0x74,0x61].forEach((b,i) => { out[36+i] = b; }); // 'data'
+  view.setUint32(40, frames * 2, true);
+  for (let i = 0; i < frames; i++) view.setInt16(44 + i * 2, pcm[i], true);
+  // base64 encode without btoa length limit
+  let bin = '';
+  for (let i = 0; i < out.length; i++) bin += String.fromCharCode(out[i]);
+  return 'data:audio/wav;base64,' + btoa(bin);
 }
 
-function playTone(freq, durationMs, vol = 0.18) {
+// All tones pre-baked as Audio elements at load time.
+const TONES = (() => {
+  const defs = {
+    up:    [1050,  70, 0.18],
+    down:  [ 520,  70, 0.18],
+    sel1:  [ 600,  90, 0.18],
+    sel2:  [1000, 130, 0.18],
+    mode1: [ 400, 100, 0.18],
+    mode2: [ 600, 100, 0.18],
+    mode3: [ 900, 160, 0.18],
+    hold:  [ 440, 250, 0.30],
+  };
+  const map = {};
+  for (const [k, [f, d, v]] of Object.entries(defs)) {
+    map[k] = new Audio(makeSineWav(f, d, v));
+  }
+  return map;
+})();
+
+/**
+ * Call synchronously inside a user-gesture handler (start-splash tap) to
+ * unlock all Audio elements on iOS.  Each element must be individually
+ * play()-ed inside the gesture; we mute them so the user hears nothing.
+ */
+function unlockAudio() {
+  for (const audio of Object.values(TONES)) {
+    audio.volume = 0;
+    const p = audio.play();
+    if (p) p.catch(() => {});
+  }
+  // Restore volume after the silent plays have started.
+  setTimeout(() => {
+    for (const audio of Object.values(TONES)) audio.volume = 1;
+  }, 300);
+}
+
+function playToneEl(key) {
   if (!cfg.soundOn) return;
-  try {
-    const actx = getAudioCtx();
-    const osc  = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.connect(gain);
-    gain.connect(actx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, actx.currentTime);
-    gain.gain.setValueAtTime(vol, actx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + durationMs / 1000);
-    osc.start(actx.currentTime);
-    osc.stop(actx.currentTime + durationMs / 1000);
-  } catch (_) {}
+  const audio = TONES[key];
+  if (!audio) return;
+  try { audio.currentTime = 0; audio.play().catch(() => {}); } catch (_) {}
 }
 
-function sndUp()         { playTone(1050, 70); }
-function sndDown()       { playTone(520,  70); }
-function sndSelect()     { playTone(600, 90); setTimeout(() => playTone(1000, 130), 75); }
-function sndModeChange() { playTone(400, 100); setTimeout(() => playTone(600, 100), 110); setTimeout(() => playTone(900, 160), 220); }
+function sndUp()         { playToneEl('up'); }
+function sndDown()       { playToneEl('down'); }
+function sndSelect()     { playToneEl('sel1'); setTimeout(() => playToneEl('sel2'), 75); }
+function sndModeChange() { playToneEl('mode1'); setTimeout(() => playToneEl('mode2'), 110); setTimeout(() => playToneEl('mode3'), 220); }
 
 // ─────────────────────────────────────────────────────────────────────────
 // Settings panel
@@ -932,11 +991,11 @@ document.addEventListener('keydown', e => {
 // ─────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────
-(async function init() {
+(function init() {
   spReset();
   renderText();
   bindSettings();
-  applyMode(); // set initial UI state (inactive)
+  applyMode();
 
   document.getElementById('speak-btn').addEventListener('click', () => {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
@@ -971,8 +1030,28 @@ document.addEventListener('keydown', e => {
 
   document.getElementById('mode-badge').addEventListener('click', cycleMode);
 
-  if (!cfg.calibrated) startCalibration();
+  // Start button: unlocks Web Audio + Speech Synthesis synchronously (iOS
+  // requires both to be triggered directly inside a user-gesture handler),
+  // then starts the camera.
+  document.getElementById('start-btn').addEventListener('click', () => {
+    // Unlock all Audio elements — must happen synchronously inside this gesture.
+    unlockAudio();
 
+    // Unlock Speech Synthesis — silent utterance in the same gesture.
+    try {
+      const utt = new SpeechSynthesisUtterance('');
+      utt.volume = 0;
+      speechSynthesis.speak(utt);
+    } catch (_) {}
+
+    document.getElementById('start-splash').classList.add('hidden');
+
+    startCamera();
+    if (!cfg.calibrated) startCalibration();
+  });
+})();
+
+async function startCamera() {
   if (typeof FaceMesh === 'undefined' || typeof Camera === 'undefined') {
     setStatus('MediaPipe nicht geladen — Tastatur-Modus aktiv', '#fa4');
     return;
@@ -1003,4 +1082,4 @@ document.addEventListener('keydown', e => {
   } catch (err) {
     setStatus('Kamera-Fehler: ' + err.message + ' — Tastatur-Modus aktiv', '#f84');
   }
-})();
+}

@@ -99,21 +99,29 @@ body {
 #eye-indicator.closed { border-color: #2a4a8a; color: #6af; background: #0d0d1a; }
 #eye-indicator.closed .eye-dot { background: #6af; }
 
-/* Hold-to-switch-mode indicator */
+/* Hold-to-switch-mode indicator — absolute overlay at the bottom of cam-wrap */
 #hold-indicator {
-  width: 100%;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  padding: 0.5rem 0.6rem 0.5rem;
+  background: rgba(0,0,0,0.65);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
 }
 #hold-label {
   font-size: 1.3vmin;
-  color: #444;
+  color: #88f;
   text-align: center;
 }
 #hold-track {
   height: 5px;
-  background: #1a1a1a;
+  background: rgba(255,255,255,0.1);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -122,10 +130,10 @@ body {
   width: 0%;
   background: #44f;
   border-radius: 3px;
+  transition: background 0.2s;
 }
-#hold-indicator.active #hold-label { color: #88f; }
-#hold-indicator.active #hold-bar   { background: #44f; }
-#hold-indicator.done   #hold-bar   { background: #4af; }
+#hold-indicator.active          { opacity: 1; }
+#hold-indicator.done #hold-bar  { background: #4af; }
 
 /* Sound toggle button */
 #sound-btn {
@@ -167,19 +175,18 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
+  align-items: stretch;
   position: relative;
 }
 
-/* Spelling sub-panel wrapper — preserves the original column-flex layout */
+/* Spelling sub-panel wrapper */
 #wheel-spelling {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  gap: 0.2rem;
+  flex: 1;
+  justify-content: space-evenly;
+  padding: 0.5rem 0;
 }
 
 /* ── Word-tree sub-panel ──────────────────────────────────── */
@@ -187,9 +194,9 @@ body {
   display: none;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  gap: 0.3rem;
+  flex: 1;
+  justify-content: space-evenly;
+  padding: 0.5rem 0;
 }
 
 .wt-adj {
@@ -511,6 +518,42 @@ body {
   font-size: 1.2vmin;
   color: #222;
 }
+
+/* ── Start splash ─────────────────────────────────────────── */
+#start-splash {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 998;
+  align-items: center;
+  justify-content: center;
+}
+#start-splash.hidden { display: none; }
+#start-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5rem;
+}
+#start-title {
+  font-size: 12vmin;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+#start-btn {
+  font-size: 4vmin;
+  padding: 1.2rem 3rem;
+  background: #1a3a1a;
+  border: 2px solid #2a6a2a;
+  color: #6f6;
+  border-radius: 10px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+#start-btn:active { background: #2a6a2a; }
 
 /* ── Portrait-mode hint ───────────────────────────────────── */
 #portrait-hint {
