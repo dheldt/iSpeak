@@ -17,7 +17,7 @@ const T9_GROUPS = [
 ];
 const T9_MAP      = Object.fromEntries(T9_GROUPS.map(g => [g.key, g.chars]));
 const T9_KEYS     = T9_GROUPS.map(g => g.key);
-const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern'];
+const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern', 'Telegram'];
 const SP_TOP      = [...T9_KEYS, ...SP_SPECIALS];
 const SP_BACK     = '← Zurück';
 
@@ -59,6 +59,9 @@ function spExecuteSpecial(c) {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
   } else if (c === 'Speichern') {
     if (buf.trim()) { savePhrase(buf); }
+  } else if (c === 'Telegram') {
+    if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); });
+    return;
   } else if (c === 'DEL') {
     buf = buf.slice(0, -1); renderText();
   } else if (c === 'CLR') {
@@ -254,13 +257,14 @@ let wtBucket   = null;   // selected bucket key e.g. 'A – D'
 let wtItems    = [];     // current list displayed in the wheel
 let wtIdx      = 0;      // current scroll position
 
-const WT_SPEAK = '↵ Sprechen';
+const WT_SPEAK    = '↵ Sprechen';
+const WT_TELEGRAM = '↵ Telegram';
 
 function wtReset() {
   wtLevel    = 0;
   wtCategory = null;
   wtBucket   = null;
-  wtItems    = [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK];
+  wtItems    = [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM];
   wtIdx      = 0;
   renderWordTree();
   renderBreadcrumb();
@@ -275,6 +279,10 @@ function wtSelectCurrent() {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
     flashWordTree();
     wtReset();
+    return;
+  }
+  if (chosen === WT_TELEGRAM) {
+    if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); flashWordTree(); wtReset(); });
     return;
   }
   if (wtLevel === 0) {
@@ -323,7 +331,7 @@ function wtSelectCurrent() {
 }
 
 function wtGoBack() {
-  const rootItems = () => [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK];
+  const rootItems = () => [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM];
   if (wtLevel === 2) {
     // For Gespeichert with ≤10 entries we skipped level 1 — go straight to root.
     if (wtCategory === WT_SAVED_CAT && loadSaved().length <= 10) {
@@ -717,7 +725,10 @@ function closeModeModal() {
 function handleBlink(dur) {
   // Long holds are handled mid-frame (see onResults); ignore them here.
   if (dur >= cfg.blinkMin && dur <= cfg.blinkMax) {
-    if (modeModalOpen) {
+    if (typeof tgModalOpen !== 'undefined' && tgModalOpen) {
+      tgModalSelect();
+      showGaze('mid'); sndSelect();
+    } else if (modeModalOpen) {
       closeModeModal();
       cycleMode();
       sndModeChange();
@@ -948,7 +959,13 @@ function onResults(results) {
   // Grace period of 1500 ms after modal opens: ignore gaze so that the
   // eye naturally opening after the hold doesn't immediately close the modal.
   const MODAL_GAZE_GRACE = 1500;
-  if (modeModalOpen && eyeOpenForGaze && !earBelowThresh && (now - modeModalStart) > MODAL_GAZE_GRACE) {
+  if (typeof tgModalOpen !== 'undefined' && tgModalOpen && eyeOpenForGaze && now - lastGazeTime > cfg.gazeDebounce) {
+    if (gazeVal < cfg.gazeUpThresh) {
+      tgModalScroll(-1); showGaze('up'); sndUp(); lastGazeTime = now;
+    } else if (gazeVal > cfg.gazeDownThresh) {
+      tgModalScroll(+1); showGaze('dn'); sndDown(); lastGazeTime = now;
+    }
+  } else if (modeModalOpen && eyeOpenForGaze && !earBelowThresh && (now - modeModalStart) > MODAL_GAZE_GRACE) {
     const anyGaze = gazeVal < cfg.gazeUpThresh || gazeVal > cfg.gazeDownThresh;
     if (anyGaze && now - lastGazeTime > cfg.gazeDebounce) {
       closeModeModal();
@@ -1130,6 +1147,13 @@ function bindSettings() {
 // Keyboard fallback
 // ─────────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
+  if (typeof tgModalOpen !== 'undefined' && tgModalOpen) {
+    if (e.key === 'ArrowUp')   { tgModalScroll(-1); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { tgModalScroll(+1); e.preventDefault(); }
+    if (e.key === 'Enter' || e.key === ' ') { tgModalSelect(); e.preventDefault(); }
+    if (e.key === 'Escape') { tgModalClose(); e.preventDefault(); }
+    return;
+  }
   if (e.key === 'Escape') {
     cycleMode(); e.preventDefault();
   } else if (e.key === 'ArrowUp' && mode !== 'inactive') {

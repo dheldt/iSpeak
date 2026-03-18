@@ -626,6 +626,44 @@ body {
   #portrait-hint { display: flex; }
 }
 
+/* ── Telegram contact-selection modal ────────────────────── */
+#tg-contact-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+#tg-contact-modal.open { display: flex; }
+#tg-contact-card {
+  background: #111;
+  border: 2px solid #2a4a8a;
+  border-radius: 12px;
+  padding: 2.5rem 5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 340px;
+}
+#tg-contact-title {
+  font-size: 1.4vmin;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.6rem;
+}
+.tgcw-adj  { font-size: 5vmin;  color: #333; line-height: 1; }
+.tgcw-main { font-size: 8vmin;  color: #fff; font-weight: 700; line-height: 1; }
+.tgcw-main.tg-cancel { color: #555; font-weight: 400; }
+#tg-contact-hint {
+  font-size: 1.4vmin;
+  color: #444;
+  margin-top: 0.8rem;
+}
+
 /* ── Mode-change confirmation modal ──────────────────────── */
 #mode-modal {
   display: none;

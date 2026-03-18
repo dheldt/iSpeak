@@ -8,11 +8,19 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 const TG = {
-  BASE: 'https://api.telegram.org',
+  BASE:         'https://api.telegram.org',
   lastUpdateId: 0,
   pollTimer:    null,
   messages:     [],      // up to MAX_TG_MESSAGES, newest first
+  lastSenderId: null,    // chatId of most recent incoming message
 };
+
+// ── Contact-selection modal state ─────────────────────────────────────────
+let tgModalOpen     = false;
+let tgModalItems    = [];   // [{name, chatId}] + cancel entry
+let tgModalIdx      = 0;
+let tgModalText     = '';
+let tgModalCallback = null;
 
 const MAX_TG_MESSAGES = 50;
 
@@ -72,6 +80,8 @@ function tgHandleMessage(msg) {
     ? [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ')
     : msg.chat?.title || chatId;
 
+  TG.lastSenderId = chatId;
+
   // Auto-add unknown senders to contacts
   if (!cfg.tgContacts.find(c => c.chatId === chatId)) {
     cfg.tgContacts.push({ name: fromName, chatId });
@@ -105,10 +115,12 @@ function tgHandleMessage(msg) {
 }
 
 // ── Send message ──────────────────────────────────────────────────────────
-async function tgSend(text) {
-  const contact = cfg.tgContacts.find(c => c.chatId === cfg.tgActiveContact);
+async function tgSend(text, chatId) {
+  const id      = chatId || cfg.tgActiveContact;
+  const contact = cfg.tgContacts.find(c => c.chatId === id);
   if (!contact) { tgSetStatus('Kein Kontakt gewählt', 'err'); return false; }
   tgSetStatus('Sende…', 'busy');
+  tts(`Sende ${text} an ${contact.name}.`);
   const result = await tgApi('sendMessage', { chat_id: contact.chatId, text });
   if (!result) return false;
 
@@ -248,6 +260,70 @@ function tgUpdateSendBtn() {
   if (btn) btn.style.display = (cfg.tgToken || '').trim() ? '' : 'none';
 }
 
+// ── tgInitiateSend — entry point for all "send to Telegram" actions ────────
+// text    : the string to send
+// callback: called (no args) on successful send (e.g. clear buffer)
+function tgInitiateSend(text, callback) {
+  if (!(cfg.tgToken || '').trim()) { tgSetStatus('Kein Token konfiguriert', 'err'); return; }
+  if (!cfg.tgContacts.length)      { tgSetStatus('Keine Kontakte konfiguriert', 'err'); return; }
+
+  if (cfg.tgContacts.length === 1) {
+    // Single contact — send immediately, no modal needed
+    tgSend(text, cfg.tgContacts[0].chatId).then(ok => { if (ok && callback) callback(); });
+    return;
+  }
+
+  // Multiple contacts — open selection wheel
+  tgModalText     = text;
+  tgModalCallback = callback;
+  tgModalItems    = [
+    ...cfg.tgContacts,
+    { name: '✕ Abbrechen', chatId: null },
+  ];
+
+  // Default to the contact who last sent a message, otherwise first contact
+  const lastIdx = tgModalItems.findIndex(c => c.chatId === TG.lastSenderId);
+  tgModalIdx = lastIdx >= 0 ? lastIdx : 0;
+
+  tgModalOpen = true;
+  document.getElementById('tg-contact-modal').classList.add('open');
+  renderTgModal();
+}
+
+function tgModalClose() {
+  tgModalOpen = false;
+  document.getElementById('tg-contact-modal').classList.remove('open');
+}
+
+function tgModalScroll(dir) {
+  tgModalIdx = ((tgModalIdx + dir) % tgModalItems.length + tgModalItems.length) % tgModalItems.length;
+  renderTgModal();
+}
+
+function tgModalSelect() {
+  const chosen = tgModalItems[tgModalIdx];
+  tgModalClose();
+  if (!chosen || chosen.chatId === null) return;   // Abbrechen
+  tgSend(tgModalText, chosen.chatId).then(ok => {
+    if (ok && tgModalCallback) tgModalCallback();
+  });
+}
+
+function renderTgModal() {
+  const total  = tgModalItems.length;
+  const itemAt = off => tgModalItems[((tgModalIdx + off) % total + total) % total];
+
+  const prev = document.getElementById('tgcw-prev');
+  const main = document.getElementById('tgcw-main');
+  const next = document.getElementById('tgcw-next');
+  if (!main) return;
+
+  prev.textContent = itemAt(-1).name;
+  main.textContent = itemAt( 0).name;
+  next.textContent = itemAt(+1).name;
+  main.classList.toggle('tg-cancel', itemAt(0).chatId === null);
+}
+
 // ── Init (runs after telegram.js is fully loaded) ─────────────────────────
 function initTelegram() {
   // Ensure contacts is always an array (guard against corrupted localStorage)
@@ -337,10 +413,9 @@ function initTelegram() {
   });
 
   // ── Send button in text panel ──────────────────────────────────────────
-  document.getElementById('tg-send-btn')?.addEventListener('click', async () => {
+  document.getElementById('tg-send-btn')?.addEventListener('click', () => {
     if (!buf.trim()) return;
-    const ok = await tgSend(buf);
-    if (ok) { addHistory(buf, 'spoken'); buf = ''; renderText(); }
+    tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); });
   });
 
   tgRenderContacts();
