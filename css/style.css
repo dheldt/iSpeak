@@ -202,6 +202,35 @@ body {
   width: 100%;
 }
 
+/* ── Telegram mode sub-panel ────────────────────────────── */
+#wheel-telegram {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+}
+
+#tm-main {
+  font-size: 8vmin;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  transition: color 0.2s;
+}
+#tm-main.flash   { color: #4af; }
+/* Conversation view: smaller font to fit message text */
+#wheel-telegram.tm-conv #tm-main      { font-size: 4.5vmin; font-weight: 400; }
+#wheel-telegram.tm-conv .wt-adj.near  { font-size:   4vmin; }
+#wheel-telegram.tm-conv .wt-adj       { font-size: 3.2vmin; }
+
+#wheel.inactive #tm-main { color: #222 !important; }
+
 /* ── Sätze sub-panel ─────────────────────────────────────── */
 #wheel-sätze {
   display: none;
@@ -223,9 +252,10 @@ body {
   overflow-wrap: break-word;
   transition: color 0.2s;
 }
-#st-main.flash   { color: #4af; }
-#st-main.st-back { font-weight: 400; }
+#st-main.flash    { color: #4af; }
+#st-main.st-back  { font-weight: 400; }
 #st-main.st-empty { color: #333; font-weight: 400; }
+#st-main.st-action { color: #4af; font-weight: 400; }
 
 .wt-adj {
   font-size: 5vmin;
@@ -303,7 +333,8 @@ body {
 #wheel.inactive .adj,
 #wheel.inactive #wt-main,
 #wheel.inactive .wt-adj,
-#wheel.inactive #st-main { color: #222 !important; }
+#wheel.inactive #st-main,
+#wheel.inactive #st-main.st-action { color: #222 !important; }
 
 #mode-hint {
   position: absolute;
@@ -338,6 +369,7 @@ body {
 #mode-badge.inactive { background: #2a1a1a; color: #a55; border: 1px solid #5a2a2a; }
 #mode-badge.wordtree { background: #1a1a3a; color: #88f; border: 1px solid #2a2a8a; }
 #mode-badge.sätze    { background: #2a1a0a; color: #fa8; border: 1px solid #7a4a1a; }
+#mode-badge.telegram { background: #0d1a2a; color: #6af; border: 1px solid #1a4a8a; }
 
 /* ── Text panel (right column) ────────────────────────────── */
 #text-panel {

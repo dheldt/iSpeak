@@ -22,7 +22,27 @@ let tgModalIdx      = 0;
 let tgModalText     = '';
 let tgModalCallback = null;
 
-const MAX_TG_MESSAGES = 50;
+const MAX_TG_MESSAGES  = 100;
+const TG_MESSAGES_KEY  = 'ispeak_tg_messages';
+const TG_OFFSET_KEY    = 'ispeak_tg_offset';
+
+function tgSaveMessages() {
+  try {
+    localStorage.setItem(TG_MESSAGES_KEY, JSON.stringify(TG.messages));
+    localStorage.setItem(TG_OFFSET_KEY,   String(TG.lastUpdateId));
+  } catch (_) {}
+}
+
+function tgLoadMessages() {
+  try {
+    const raw = localStorage.getItem(TG_MESSAGES_KEY);
+    if (raw) TG.messages = JSON.parse(raw);
+  } catch (_) { TG.messages = []; }
+  try {
+    const off = localStorage.getItem(TG_OFFSET_KEY);
+    if (off) TG.lastUpdateId = parseInt(off) || 0;
+  } catch (_) {}
+}
 
 // ── Low-level API call ────────────────────────────────────────────────────
 async function tgApi(method, params = {}) {
@@ -44,10 +64,100 @@ async function tgApi(method, params = {}) {
   }
 }
 
+// ── Telegram mode — contact list + conversation wheel ─────────────────────
+const TM_BACK  = '← Zurück';
+const TM_EMPTY = '(Keine Kontakte)';
+
+let tmLevel   = 0;
+let tmContact = null;
+let tmItems   = [];
+let tmIdx     = 0;
+
+function tmItemLabel(item) {
+  if (typeof item === 'string') return item;
+  if (item.direction !== undefined) {
+    const arrow = item.direction === 'in' ? '◀' : '▶';
+    const body  = item.voiceId ? '[Sprachnachricht]' : (item.text || '');
+    return arrow + ' ' + (body.length > 38 ? body.slice(0, 38) + '…' : body);
+  }
+  return item.name;  // contact
+}
+
+function tmReset() {
+  tmLevel   = 0;
+  tmContact = null;
+  if (cfg.tgContacts.length) {
+    tmItems = [...cfg.tgContacts];
+    const lastIdx = cfg.tgContacts.findIndex(c => c.chatId === TG.lastSenderId);
+    tmIdx = lastIdx >= 0 ? lastIdx : 0;
+  } else {
+    tmItems = [TM_EMPTY];
+    tmIdx   = 0;
+  }
+  renderTelegram();
+  updateTmBreadcrumb();
+}
+
+function tmSelectCurrent() {
+  const chosen = tmItems[tmIdx];
+  if (chosen === TM_BACK)  { tmReset(); return; }
+  if (chosen === TM_EMPTY) { return; }
+  if (typeof chosen === 'string') return;
+
+  if (chosen.direction !== undefined) {
+    // It's a message — speak or play
+    if (chosen.voiceId) {
+      tgPlayVoice(chosen.voiceId);
+    } else if (chosen.text) {
+      const when = new Date(chosen.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      const who  = chosen.direction === 'in' ? chosen.fromName : 'Ich';
+      tts(`${who} um ${when}: ${chosen.text}`);
+    }
+    return;
+  }
+
+  // It's a contact — open conversation
+  tmContact = chosen;
+  tmLevel   = 1;
+  const msgs = TG.messages.filter(m => m.chatId === chosen.chatId);
+  tmItems = [TM_BACK, ...msgs];
+  tmIdx   = 0;
+  renderTelegram();
+  updateTmBreadcrumb();
+}
+
+function renderTelegram() {
+  const total = tmItems.length;
+  if (!total) return;
+  tmIdx = ((tmIdx % total) + total) % total;
+  const itemAt = off => tmItems[((tmIdx + off) % total + total) % total];
+
+  document.getElementById('tm-p2').textContent = tmItemLabel(itemAt(-2));
+  document.getElementById('tm-p1').textContent = tmItemLabel(itemAt(-1));
+
+  const mainEl  = document.getElementById('tm-main');
+  const current = itemAt(0);
+  mainEl.textContent = tmItemLabel(current);
+  mainEl.classList.toggle('wt-back', current === TM_BACK);
+
+  document.getElementById('tm-n1').textContent = tmItemLabel(itemAt(+1));
+  document.getElementById('tm-n2').textContent = tmItemLabel(itemAt(+2));
+
+  // Smaller font in conversation view to fit message text
+  const panel = document.getElementById('wheel-telegram');
+  if (panel) panel.classList.toggle('tm-conv', tmLevel === 1);
+}
+
+function updateTmBreadcrumb() {
+  const el = document.getElementById('wt-breadcrumb');
+  if (el) el.textContent = tmLevel === 0 ? 'Telegram' : `Telegram › ${tmContact?.name || ''}`;
+}
+
 // ── Polling ───────────────────────────────────────────────────────────────
 function tgStartPolling() {
   tgStopPolling();
   if (cfg.tgPollMode !== 'auto' || !(cfg.tgToken || '').trim()) return;
+  if (cfg.enabledModes?.telegram === false) return;
   const ms = (cfg.tgPollSeconds || 60) * 1000;
   TG.pollTimer = setInterval(tgPoll, ms);
 }
@@ -101,8 +211,17 @@ function tgHandleMessage(msg) {
 
   TG.messages.unshift(entry);
   if (TG.messages.length > MAX_TG_MESSAGES) TG.messages.pop();
+  tgSaveMessages();
   tgRenderMessages();
   tgUpdateBadge(true);
+
+  // Refresh conversation wheel if currently viewing this contact
+  if (typeof mode !== 'undefined' && mode === 'telegram' && tmLevel === 1 && tmContact?.chatId === chatId) {
+    const msgs = TG.messages.filter(m => m.chatId === chatId);
+    tmItems = [TM_BACK, ...msgs];
+    tmIdx   = 0;
+    renderTelegram();
+  }
 
   // Auto-play with sender announcement
   const timeStr = new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -135,6 +254,7 @@ async function tgSend(text, chatId) {
   };
   TG.messages.unshift(entry);
   if (TG.messages.length > MAX_TG_MESSAGES) TG.messages.pop();
+  tgSaveMessages();
   tgRenderMessages();
   tgSetStatus('Gesendet ✓', 'ok');
   return true;
@@ -418,6 +538,7 @@ function initTelegram() {
     tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); });
   });
 
+  tgLoadMessages();
   tgRenderContacts();
   tgRenderMessages();
   tgUpdateSendBtn();

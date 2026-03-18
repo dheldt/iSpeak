@@ -154,7 +154,7 @@ const cfg = {
   soundOn:          true,   // play audio feedback
   calibrated:     false, // set true after first successful calibration
   showCamera:     false,  // show live video feed in overlay
-  enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false },
+  enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false, telegram: false },
   tgToken:         '',
   tgPollMode:      'auto',
   tgPollSeconds:   60,
@@ -174,7 +174,7 @@ function saveCfg() {
 // Mode state machine
 // Cycles on double-blink: inactive → spelling → wordtree → inactive
 // ─────────────────────────────────────────────────────────────────────────
-const MODES = ['inactive', 'wordtree', 'spelling', 'sätze'];
+const MODES = ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram'];
 let mode = 'inactive';
 
 function activeModes() {
@@ -205,7 +205,7 @@ function applyMode() {
 
   wheel.classList.toggle('inactive', mode === 'inactive');
 
-  badge.classList.remove('active', 'inactive', 'wordtree', 'sätze');
+  badge.classList.remove('active', 'inactive', 'wordtree', 'sätze', 'telegram');
   if (mode === 'inactive') {
     badge.textContent = 'INAKTIV';
     badge.classList.add('inactive');
@@ -215,6 +215,9 @@ function applyMode() {
   } else if (mode === 'sätze') {
     badge.textContent = 'SÄTZE';
     badge.classList.add('sätze');
+  } else if (mode === 'telegram') {
+    badge.textContent = 'TELEGRAM';
+    badge.classList.add('telegram');
   } else {
     badge.textContent = 'WORTBAUM';
     badge.classList.add('wordtree');
@@ -224,23 +227,34 @@ function applyMode() {
   const spellPanel = document.getElementById('wheel-spelling');
   const wtPanel    = document.getElementById('wheel-wordtree');
   const stPanel    = document.getElementById('wheel-sätze');
+  const tmPanel    = document.getElementById('wheel-telegram');
   const crumb      = document.getElementById('wt-breadcrumb');
   if (mode === 'wordtree') {
     spellPanel.style.display = 'none';
     wtPanel.style.display    = 'flex';
     stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
     crumb.style.display      = 'block';
     wtReset();
   } else if (mode === 'sätze') {
     spellPanel.style.display = 'none';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'flex';
+    tmPanel.style.display    = 'none';
     crumb.style.display      = 'block';
     stReset();
+  } else if (mode === 'telegram') {
+    spellPanel.style.display = 'none';
+    wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'flex';
+    crumb.style.display      = 'block';
+    tmReset();
   } else {
     spellPanel.style.display = '';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
     crumb.style.display      = 'none';
     if (mode === 'spelling') spReset();
   }
@@ -396,26 +410,32 @@ function flashWordTree() {
 // ─────────────────────────────────────────────────────────────────────────
 // Sätze mode — browse and speak saved phrases
 // ─────────────────────────────────────────────────────────────────────────
-const ST_BACK  = '← Zurück';
-const ST_EMPTY = '(Keine Sätze)';
+const ST_BACK     = '← Zurück';
+const ST_EMPTY    = '(Keine Sätze)';
+const ST_SPEAK    = '↵ Sprechen';
+const ST_TELEGRAM = '↵ Telegram';
 
 let stLevel  = 0;
 let stBucket = null;
 let stItems  = [];
 let stIdx    = 0;
 
+function stRootItems() {
+  const saved = loadSaved();
+  if (saved.length === 0) {
+    return [ST_EMPTY, ST_SPEAK, ST_TELEGRAM];
+  } else if (saved.length <= 10) {
+    return [...saved, ST_SPEAK, ST_TELEGRAM];
+  } else {
+    return [...savedBucketKeys(saved), ST_SPEAK, ST_TELEGRAM];
+  }
+}
+
 function stReset() {
   stLevel  = 0;
   stBucket = null;
-  const saved = loadSaved();
-  if (saved.length === 0) {
-    stItems = [ST_EMPTY];
-  } else if (saved.length <= 10) {
-    stItems = [...saved];
-  } else {
-    stItems = savedBucketKeys(saved);
-  }
-  stIdx = 0;
+  stItems  = stRootItems();
+  stIdx    = 0;
   renderSätze();
   updateStBreadcrumb();
 }
@@ -423,7 +443,16 @@ function stReset() {
 function stSelectCurrent() {
   const chosen = stItems[stIdx];
   if (chosen === ST_EMPTY) return;
-  if (chosen === ST_BACK) { stReset(); return; }
+  if (chosen === ST_BACK)  { stReset(); return; }
+  if (chosen === ST_SPEAK) {
+    if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
+    flashSätze();
+    return;
+  }
+  if (chosen === ST_TELEGRAM) {
+    if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); flashSätze(); });
+    return;
+  }
   const saved = loadSaved();
   if (stLevel === 0 && saved.length > 10) {
     // chosen is a T9 bucket key — drill in
@@ -434,10 +463,11 @@ function stSelectCurrent() {
     renderSätze();
     updateStBreadcrumb();
   } else {
-    // chosen is a phrase — speak it
-    addHistory(chosen, 'spoken');
-    tts(chosen);
+    // chosen is a phrase — append to buffer, return to root
+    buf += (buf.length > 0 && buf.slice(-1) !== ' ') ? ' ' + chosen : chosen;
+    renderText();
     flashSätze();
+    stReset();
   }
 }
 
@@ -453,8 +483,9 @@ function renderSätze() {
   const mainEl  = document.getElementById('st-main');
   const current = itemAt(0);
   mainEl.textContent = current;
-  mainEl.classList.toggle('st-back',  current === ST_BACK);
-  mainEl.classList.toggle('st-empty', current === ST_EMPTY);
+  mainEl.classList.toggle('st-back',     current === ST_BACK);
+  mainEl.classList.toggle('st-empty',    current === ST_EMPTY);
+  mainEl.classList.toggle('st-action',   current === ST_SPEAK || current === ST_TELEGRAM);
 
   document.getElementById('st-n1').textContent = itemAt(+1);
   document.getElementById('st-n2').textContent = itemAt(+2);
@@ -741,6 +772,9 @@ function handleBlink(dur) {
     } else if (mode === 'sätze') {
       stSelectCurrent();
       showGaze('mid'); sndSelect();
+    } else if (mode === 'telegram') {
+      tmSelectCurrent();
+      showGaze('mid'); sndSelect();
     }
   }
 }
@@ -979,6 +1013,9 @@ function onResults(results) {
       } else if (mode === 'sätze') {
         stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length;
         renderSätze();
+      } else if (mode === 'telegram') {
+        tmIdx = ((tmIdx - 1) % tmItems.length + tmItems.length) % tmItems.length;
+        renderTelegram();
       } else {
         wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length;
         renderWordTree();
@@ -992,6 +1029,9 @@ function onResults(results) {
       } else if (mode === 'sätze') {
         stIdx = (stIdx + 1) % stItems.length;
         renderSätze();
+      } else if (mode === 'telegram') {
+        tmIdx = (tmIdx + 1) % tmItems.length;
+        renderTelegram();
       } else {
         wtIdx = (wtIdx + 1) % wtItems.length;
         renderWordTree();
@@ -1158,18 +1198,21 @@ document.addEventListener('keydown', e => {
     cycleMode(); e.preventDefault();
   } else if (e.key === 'ArrowUp' && mode !== 'inactive') {
     if (mode === 'spelling') { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
-    else if (mode === 'sätze') { stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length; renderSätze(); }
+    else if (mode === 'sätze')    { stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length; renderSätze(); }
+    else if (mode === 'telegram') { tmIdx = ((tmIdx - 1) % tmItems.length + tmItems.length) % tmItems.length; renderTelegram(); }
     else { wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length; renderWordTree(); }
     showGaze('up'); e.preventDefault();
   } else if (e.key === 'ArrowDown' && mode !== 'inactive') {
-    if (mode === 'spelling') { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
-    else if (mode === 'sätze') { stIdx = (stIdx + 1) % stItems.length; renderSätze(); }
+    if (mode === 'spelling')      { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
+    else if (mode === 'sätze')    { stIdx = (stIdx + 1) % stItems.length; renderSätze(); }
+    else if (mode === 'telegram') { tmIdx = (tmIdx + 1) % tmItems.length; renderTelegram(); }
     else { wtIdx = (wtIdx + 1) % wtItems.length; renderWordTree(); }
     showGaze('dn'); e.preventDefault();
   } else if ((e.key === 'Enter' || e.key === ' ') && mode !== 'inactive') {
-    if (mode === 'spelling') spSelectCurrent();
-    else if (mode === 'sätze') stSelectCurrent();
-    else wtSelectCurrent();
+    if (mode === 'spelling')      spSelectCurrent();
+    else if (mode === 'sätze')    stSelectCurrent();
+    else if (mode === 'telegram') tmSelectCurrent();
+    else                          wtSelectCurrent();
     showGaze('mid'); e.preventDefault();
   }
 });
@@ -1201,15 +1244,18 @@ document.addEventListener('keydown', e => {
     saveCfg();
   });
 
-  ['inactive', 'wordtree', 'spelling', 'sätze'].forEach(m => {
+  ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram'].forEach(m => {
     const cb = document.getElementById(`s-m-${m}`);
     cb.checked = cfg.enabledModes[m] !== false;
     cb.addEventListener('change', () => {
       cfg.enabledModes[m] = cb.checked;
       if (mode === m && !cfg.enabledModes[m]) {
-        // Current mode disabled — jump to first available mode, or inactive if none
         mode = activeModes()[0] ?? 'inactive';
         applyMode();
+      }
+      // Restart Telegram polling when its mode is toggled
+      if (m === 'telegram' && typeof tgStopPolling !== 'undefined') {
+        tgStopPolling(); tgStartPolling();
       }
       saveCfg();
     });
