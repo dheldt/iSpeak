@@ -76,9 +76,23 @@
         <span id="text-out"></span><span id="cursor"></span>
       </div>
       <button id="speak-btn">&#9654; Sprechen</button>
+      <button id="tg-send-btn" style="display:none">✈ Telegram senden</button>
       <div id="text-history"></div>
     </div>
 
+  </div>
+
+  <!-- Telegram button -->
+  <button id="tg-btn" title="Telegram">✈</button>
+
+  <!-- Telegram message overlay -->
+  <div id="tg-overlay">
+    <div id="tg-overlay-header">
+      <span id="tg-overlay-title">Telegram</span>
+      <span id="tg-status" class="tg-status">Nicht konfiguriert</span>
+      <button id="tg-close-btn" title="Schließen">✕</button>
+    </div>
+    <div id="tg-msg-list"></div>
   </div>
 
   <!-- Settings (caregiver panel) -->
@@ -94,6 +108,40 @@
       <div class="s-row">
         <button id="cam-btn" style="flex:1">📷 Kamera AUS</button>
       </div>
+      <div class="s-section">Telegram</div>
+      <div class="s-row">
+        <label>Bot Token</label>
+        <input type="password" id="tg-token" class="s-text-input" placeholder="123456:ABC-DEF…">
+      </div>
+      <div class="s-row">
+        <label>Polling</label>
+        <select id="tg-poll-mode">
+          <option value="auto">Automatisch</option>
+          <option value="manual">Manuell</option>
+        </select>
+      </div>
+      <div class="s-row" id="tg-poll-interval-row">
+        <label>Intervall</label>
+        <input type="range" id="tg-poll-sec" min="30" max="3600" step="30" value="60">
+        <span class="val" id="tg-poll-val">60 s</span>
+      </div>
+      <div class="s-row">
+        <button id="tg-poll-now" style="flex:1">📨 Jetzt abrufen</button>
+      </div>
+      <div class="s-row">
+        <label>Senden an</label>
+        <select id="tg-active-contact" class="s-text-input">
+          <option value="">— kein Kontakt —</option>
+        </select>
+      </div>
+      <div class="s-row">
+        <input type="text" id="tg-new-name"   class="s-text-input" placeholder="Name" style="flex:1">
+        <input type="text" id="tg-new-chatid" class="s-text-input" placeholder="Chat-ID" style="flex:1">
+        <button id="tg-add-btn">+</button>
+      </div>
+      <div id="tg-contact-list"></div>
+
+      <div class="s-section">Modi</div>
       <div class="s-row">
         <label>Modus: Inaktiv</label>
         <input type="checkbox" id="s-m-inactive" checked>
@@ -205,6 +253,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="js/words.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/telegram.js"></script>
 
 </body>
 </html>

@@ -152,6 +152,11 @@ const cfg = {
   calibrated:     false, // set true after first successful calibration
   showCamera:     false,  // show live video feed in overlay
   enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false },
+  tgToken:         '',
+  tgPollMode:      'auto',
+  tgPollSeconds:   60,
+  tgContacts:      [],
+  tgActiveContact: '',
 };
 
 (function loadCfg() {
@@ -1153,6 +1158,7 @@ document.addEventListener('keydown', e => {
   renderText();
   bindSettings();
   applyMode();
+  initTelegram();
 
   document.getElementById('speak-btn').addEventListener('click', () => {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
