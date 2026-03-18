@@ -17,7 +17,7 @@ const T9_GROUPS = [
 ];
 const T9_MAP      = Object.fromEntries(T9_GROUPS.map(g => [g.key, g.chars]));
 const T9_KEYS     = T9_GROUPS.map(g => g.key);
-const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern'];
+const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern', 'Telegram'];
 const SP_TOP      = [...T9_KEYS, ...SP_SPECIALS];
 const SP_BACK     = '← Zurück';
 
@@ -29,7 +29,7 @@ let spIdx   = 0;
 function spReset() {
   spLevel = 0;
   spGroup = null;
-  spItems = [...SP_TOP];
+  spItems = SP_TOP.filter(i => i !== 'Telegram' || cfg.enabledModes?.telegram);
   spIdx   = 0;
   renderSpelling();
 }
@@ -58,7 +58,17 @@ function spExecuteSpecial(c) {
   if (c === 'Sprechen') {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
   } else if (c === 'Speichern') {
-    if (buf.trim()) { savePhrase(buf); }
+    if (buf.trim()) openCatModal(catId => { wordsAddWord(catId, buf); buf = ''; renderText(); flashLetter(); }, wordsTreeLoad, wordsFind);
+    return;
+  } else if (c === 'Telegram') {
+    if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); });
+    return;
+  } else if (c === 'Satz') {
+    if (buf.trim()) openCatModal(catId => { sätzeAddPhrase(catId, buf); flashLetter(); });
+    return;
+  } else if (c === 'Kateg.') {
+    if (buf.trim()) openCatModal(catId => { sätzeAddCategory(buf, catId); flashLetter(); });
+    return;
   } else if (c === 'DEL') {
     buf = buf.slice(0, -1); renderText();
   } else if (c === 'CLR') {
@@ -67,6 +77,145 @@ function spExecuteSpecial(c) {
     buf += ' '; renderText();
   }
   flashLetter();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Autocomplete mode — T9 spelling with live word suggestions
+// ─────────────────────────────────────────────────────────────────────────
+let acLevel = 0;    // 0 = top (T9 groups + suggestions + specials), 1 = letter group
+let acGroup = null; // active T9 group key when level=1
+let acItems = [];
+let acIdx   = 0;
+
+// Returns the last "word" being typed (part of buf after last space), lowercased.
+function acCurrentPrefix() {
+  const parts = buf.split(' ');
+  return parts[parts.length - 1].toLowerCase();
+}
+
+// Flatten all words from WT_DATA + ispeak_words tree, deduplicated.
+function acCollectAllWords() {
+  const seen  = new Set();
+  const words = [];
+  function add(w) {
+    const t = w.trim();
+    if (t && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); words.push(t); }
+  }
+  // User's custom words tree (highest priority — added first so dedup keeps them)
+  function traverse(node) {
+    for (const p of node.phrases) add(p);
+    for (const c of node.children) traverse(c);
+  }
+  traverse(wordsTreeLoad());
+  // Built-in curated word list (WT_DATA)
+  for (const buckets of Object.values(WT_DATA))
+    for (const list of Object.values(buckets))
+      for (const w of list) add(w);
+  // Large German word list — enz/german-wordlist, CC0 (words_de.js)
+  if (typeof GERMAN_WORDLIST !== 'undefined')
+    for (const w of GERMAN_WORDLIST) add(w);
+  return words;
+}
+
+function acGetSuggestions() {
+  const prefix = acCurrentPrefix();
+  if (prefix.length < 1) return [];
+  const all = acCollectAllWords();
+  return all
+    .filter(w => w.toLowerCase().startsWith(prefix))
+    .sort((a, b) => a.length - b.length || a.localeCompare(b, 'de'))
+    .slice(0, 15);
+}
+
+function acBuildItems() {
+  const sugg = acGetSuggestions().map(s => ({ _type: 'suggestion', text: s }));
+  return [...T9_KEYS, ...sugg, ...SP_SPECIALS.filter(i => i !== 'Telegram' || cfg.enabledModes?.telegram)];
+}
+
+function acItemLabel(item) {
+  if (typeof item === 'object' && item._type === 'suggestion') return '→ ' + item.text;
+  return item;
+}
+
+function acReset() {
+  acLevel = 0;
+  acGroup = null;
+  acItems = acBuildItems();
+  acIdx   = 0;
+  renderAutocomplete();
+  updateAcBreadcrumb();
+}
+
+function acSelectCurrent() {
+  const chosen = acItems[acIdx];
+  if (acLevel === 1) {
+    if (chosen === SP_BACK) { acReset(); return; }
+    buf += chosen;
+    renderText();
+    flashAutocomplete();
+    acReset();
+    return;
+  }
+  // Level 0
+  if (typeof chosen === 'object' && chosen._type === 'suggestion') {
+    // Replace the current partial word with the suggestion + trailing space
+    const parts = buf.split(' ');
+    parts[parts.length - 1] = chosen.text;
+    buf = parts.join(' ') + ' ';
+    renderText();
+    flashAutocomplete();
+    acReset();
+    return;
+  }
+  if (SP_SPECIALS.includes(chosen)) {
+    spExecuteSpecial(chosen);
+    flashAutocomplete();
+    return;
+  }
+  // T9 group
+  acGroup = chosen;
+  acLevel = 1;
+  acItems = [SP_BACK, ...T9_MAP[acGroup]];
+  acIdx   = 0;
+  renderAutocomplete();
+  updateAcBreadcrumb();
+}
+
+function renderAutocomplete() {
+  const total = acItems.length;
+  acIdx = ((acIdx % total) + total) % total;
+  const itemAt = off => acItems[((acIdx + off) % total + total) % total];
+  const label  = item => acItemLabel(item);
+
+  document.getElementById('ac-p2').textContent = label(itemAt(-2));
+  document.getElementById('ac-p1').textContent = label(itemAt(-1));
+
+  const mainEl = document.getElementById('ac-main');
+  const cur    = itemAt(0);
+  mainEl.textContent = label(cur);
+  const isSugg = typeof cur === 'object' && cur._type === 'suggestion';
+  mainEl.classList.toggle('ac-suggestion', isSugg);
+  mainEl.classList.toggle('ctrl', !isSugg && (acLevel === 0 || cur === SP_BACK));
+
+  document.getElementById('ac-n1').textContent = label(itemAt(+1));
+  document.getElementById('ac-n2').textContent = label(itemAt(+2));
+}
+
+function flashAutocomplete() {
+  const el = document.getElementById('ac-main');
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 150);
+}
+
+function updateAcBreadcrumb() {
+  const el = document.getElementById('wt-breadcrumb');
+  if (!el) return;
+  if (acLevel === 1) {
+    el.textContent = `Ergänzung › ${acGroup}`;
+  } else {
+    const prefix = acCurrentPrefix();
+    el.textContent = prefix ? `Ergänzung: „${prefix}…"` : 'Ergänzung';
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -91,8 +240,6 @@ function addHistory(text, type) {
 // Saved phrases  (persisted to localStorage)
 // ─────────────────────────────────────────────────────────────────────────
 const SAVED_KEY     = 'ispeak_saved';
-const WT_SAVED_CAT  = 'Gespeichert';
-
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch { return []; }
 }
@@ -111,15 +258,162 @@ function phraseT9Key(phrase) {
   return T9_GROUPS.find(g => g.chars.includes(first))?.key ?? null;
 }
 
-// Ordered list of T9 bucket keys that actually have saved phrases.
-function savedBucketKeys(saved) {
-  const seen = new Set(saved.map(phraseT9Key).filter(Boolean));
-  return T9_KEYS.filter(k => seen.has(k));
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sätze category tree  (persisted separately from the flat word list)
+// ─────────────────────────────────────────────────────────────────────────
+// Node shape: { id: string, name: string, children: Node[], phrases: string[] }
+// Root has id='root', name='/'.
+// On first load the old flat ispeak_saved list is migrated into root.phrases.
+// ─────────────────────────────────────────────────────────────────────────
+const SÄTZE_KEY = 'ispeak_sätze';
+
+function sätzeGenId() { return Math.random().toString(36).slice(2, 10); }
+
+function sätzeTreeLoad() {
+  try {
+    const raw = localStorage.getItem(SÄTZE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  // First-time migration from old flat saved-phrases list
+  let phrases = [];
+  try { phrases = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch {}
+  return { id: 'root', name: '/', children: [], phrases };
 }
 
-// Saved phrases whose first character falls in the given T9 bucket.
-function savedForBucket(saved, bucketKey) {
-  return saved.filter(p => phraseT9Key(p) === bucketKey);
+function sätzeTreeSave(tree) {
+  try { localStorage.setItem(SÄTZE_KEY, JSON.stringify(tree)); } catch {}
+}
+
+function sätzeFind(node, id) {
+  if (node.id === id) return node;
+  for (const c of node.children) { const f = sätzeFind(c, id); if (f) return f; }
+  return null;
+}
+
+function sätzeRemoveCat(node, id) {
+  const i = node.children.findIndex(c => c.id === id);
+  if (i >= 0) { node.children.splice(i, 1); return true; }
+  return node.children.some(c => sätzeRemoveCat(c, id));
+}
+
+function sätzeAddPhrase(catId, phrase) {
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  if (!cat || cat.phrases.includes(phrase)) return;
+  cat.phrases.unshift(phrase);
+  sätzeTreeSave(tree);
+}
+
+function sätzeAddCategory(name, parentId) {
+  const tree   = sätzeTreeLoad();
+  const parent = sätzeFind(tree, parentId);
+  if (!parent) return;
+  if (parent.children.some(c => c.name === name)) {
+    tts('Kategorie existiert bereits.');
+    return;
+  }
+  parent.children.push({ id: sätzeGenId(), name, children: [], phrases: [] });
+  sätzeTreeSave(tree);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Words tree  (persisted to localStorage as ispeak_words)
+// ─────────────────────────────────────────────────────────────────────────
+const WORDS_KEY = 'ispeak_words';
+
+function wordsTreeLoad() {
+  try { const raw = localStorage.getItem(WORDS_KEY); if (raw) return JSON.parse(raw); } catch {}
+  return { id: 'root', name: '/', children: [], phrases: [] };
+}
+
+function wordsTreeSave(tree) {
+  try { localStorage.setItem(WORDS_KEY, JSON.stringify(tree)); } catch {}
+}
+
+function wordsFind(node, id) {
+  if (node.id === id) return node;
+  for (const c of node.children) { const f = wordsFind(c, id); if (f) return f; }
+  return null;
+}
+
+function wordsAddWord(catId, word) {
+  const tree = wordsTreeLoad();
+  const cat  = wordsFind(tree, catId);
+  if (!cat || cat.phrases.includes(word)) return;
+  cat.phrases.unshift(word);
+  wordsTreeSave(tree);
+}
+
+function wordsRemoveCat(node, id) {
+  const i = node.children.findIndex(c => c.id === id);
+  if (i >= 0) { node.children.splice(i, 1); return true; }
+  return node.children.some(c => wordsRemoveCat(c, id));
+}
+
+function wordsAddCategory(name, parentId) {
+  const tree   = wordsTreeLoad();
+  const parent = wordsFind(tree, parentId);
+  if (!parent) return;
+  if (parent.children.some(c => c.name === name)) { tts('Kategorie existiert bereits.'); return; }
+  parent.children.push({ id: sätzeGenId(), name, children: [], phrases: [] });
+  wordsTreeSave(tree);
+}
+
+function sätzeRenameCategory(catId, newName) {
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  if (cat && catId !== 'root') { cat.name = newName; sätzeTreeSave(tree); }
+}
+
+function wordsRenameCategory(catId, newName) {
+  const tree = wordsTreeLoad();
+  const cat  = wordsFind(tree, catId);
+  if (cat && catId !== 'root') { cat.name = newName; wordsTreeSave(tree); }
+}
+
+function sätzeMoveCat(catId, destParentId) {
+  if (catId === destParentId || catId === 'root') return;
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  if (!cat || sätzeFind(cat, destParentId)) return; // dest is inside source
+  const dest = sätzeFind(tree, destParentId);
+  if (!dest) return;
+  sätzeRemoveCat(tree, catId);
+  dest.children.push(cat);
+  sätzeTreeSave(tree);
+}
+
+function wordsMoveCat(catId, destParentId) {
+  if (catId === destParentId || catId === 'root') return;
+  const tree = wordsTreeLoad();
+  const cat  = wordsFind(tree, catId);
+  if (!cat || wordsFind(cat, destParentId)) return; // dest is inside source
+  const dest = wordsFind(tree, destParentId);
+  if (!dest) return;
+  wordsRemoveCat(tree, catId);
+  dest.children.push(cat);
+  wordsTreeSave(tree);
+}
+
+function sätzeMovePhraseToCategory(phrase, fromCatId, toCatId) {
+  const tree = sätzeTreeLoad();
+  const from = sätzeFind(tree, fromCatId);
+  const to   = sätzeFind(tree, toCatId);
+  if (!from || !to) return;
+  from.phrases = from.phrases.filter(p => p !== phrase);
+  if (!to.phrases.includes(phrase)) to.phrases.unshift(phrase);
+  sätzeTreeSave(tree);
+}
+
+function wordsMovePhraseToCategory(phrase, fromCatId, toCatId) {
+  const tree = wordsTreeLoad();
+  const from = wordsFind(tree, fromCatId);
+  const to   = wordsFind(tree, toCatId);
+  if (!from || !to) return;
+  from.phrases = from.phrases.filter(p => p !== phrase);
+  if (!to.phrases.includes(phrase)) to.phrases.unshift(phrase);
+  wordsTreeSave(tree);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -151,7 +445,12 @@ const cfg = {
   soundOn:          true,   // play audio feedback
   calibrated:     false, // set true after first successful calibration
   showCamera:     false,  // show live video feed in overlay
-  enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false },
+  enabledModes:   { inactive: true, wordtree: false, spelling: true, autocomplete: false, sätze: false, telegram: false, manage: false },
+  tgToken:         '',
+  tgPollMode:      'auto',
+  tgPollSeconds:   60,
+  tgContacts:      [],
+  tgActiveContact: '',
 };
 
 (function loadCfg() {
@@ -166,7 +465,7 @@ function saveCfg() {
 // Mode state machine
 // Cycles on double-blink: inactive → spelling → wordtree → inactive
 // ─────────────────────────────────────────────────────────────────────────
-const MODES = ['inactive', 'wordtree', 'spelling', 'sätze'];
+const MODES = ['inactive', 'wordtree', 'spelling', 'autocomplete', 'sätze', 'telegram', 'manage'];
 let mode = 'inactive';
 
 function activeModes() {
@@ -192,21 +491,34 @@ function cycleMode() {
 }
 
 function applyMode() {
+  // Close any open modal when switching modes
+  if (catModalOpen) catModalClose();
+  if (typeof tgModalClose === 'function' && tgModalOpen) tgModalClose();
+
   const wheel = document.getElementById('wheel');
   const badge = document.getElementById('mode-badge');
 
   wheel.classList.toggle('inactive', mode === 'inactive');
 
-  badge.classList.remove('active', 'inactive', 'wordtree', 'sätze');
+  badge.classList.remove('active', 'inactive', 'wordtree', 'autocomplete', 'sätze', 'telegram', 'manage');
   if (mode === 'inactive') {
     badge.textContent = 'INAKTIV';
     badge.classList.add('inactive');
   } else if (mode === 'spelling') {
     badge.textContent = 'BUCHSTABEN';
     badge.classList.add('active');
+  } else if (mode === 'autocomplete') {
+    badge.textContent = 'ERGÄNZUNG';
+    badge.classList.add('autocomplete');
   } else if (mode === 'sätze') {
     badge.textContent = 'SÄTZE';
     badge.classList.add('sätze');
+  } else if (mode === 'telegram') {
+    badge.textContent = 'TELEGRAM';
+    badge.classList.add('telegram');
+  } else if (mode === 'manage') {
+    badge.textContent = 'VERWALTEN';
+    badge.classList.add('manage');
   } else {
     badge.textContent = 'WORTBAUM';
     badge.classList.add('wordtree');
@@ -216,23 +528,63 @@ function applyMode() {
   const spellPanel = document.getElementById('wheel-spelling');
   const wtPanel    = document.getElementById('wheel-wordtree');
   const stPanel    = document.getElementById('wheel-sätze');
+  const tmPanel    = document.getElementById('wheel-telegram');
+  const mgPanel    = document.getElementById('wheel-manage');
   const crumb      = document.getElementById('wt-breadcrumb');
+  const acPanel    = document.getElementById('wheel-autocomplete');
+
   if (mode === 'wordtree') {
     spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'flex';
     stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
     crumb.style.display      = 'block';
     wtReset();
   } else if (mode === 'sätze') {
     spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'flex';
+    tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
     crumb.style.display      = 'block';
     stReset();
-  } else {
-    spellPanel.style.display = '';
+  } else if (mode === 'telegram') {
+    spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'flex';
+    mgPanel.style.display    = 'none';
+    crumb.style.display      = 'block';
+    tmReset();
+  } else if (mode === 'manage') {
+    spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
+    wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'flex';
+    crumb.style.display      = 'block';
+    mgReset();
+  } else if (mode === 'autocomplete') {
+    spellPanel.style.display = 'none';
+    acPanel.style.display    = 'flex';
+    wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
+    crumb.style.display      = 'block';
+    acReset();
+  } else {
+    spellPanel.style.display = '';
+    acPanel.style.display    = 'none';
+    wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
     crumb.style.display      = 'none';
     if (mode === 'spelling') spReset();
   }
@@ -249,13 +601,15 @@ let wtBucket   = null;   // selected bucket key e.g. 'A – D'
 let wtItems    = [];     // current list displayed in the wheel
 let wtIdx      = 0;      // current scroll position
 
-const WT_SPEAK = '↵ Sprechen';
+const WT_SPEAK    = '↵ Sprechen';
+const WT_TELEGRAM = '↵ Telegram';
+const WT_KATEG    = '↵ Speichern';
 
 function wtReset() {
   wtLevel    = 0;
   wtCategory = null;
   wtBucket   = null;
-  wtItems    = [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK];
+  wtItems    = [...Object.keys(WT_DATA), WT_SPEAK, ...(cfg.enabledModes?.telegram ? [WT_TELEGRAM] : []), WT_KATEG];
   wtIdx      = 0;
   renderWordTree();
   renderBreadcrumb();
@@ -272,38 +626,31 @@ function wtSelectCurrent() {
     wtReset();
     return;
   }
+  if (chosen === WT_TELEGRAM) {
+    if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); flashWordTree(); wtReset(); });
+    return;
+  }
+  if (chosen === WT_KATEG) {
+    if (buf.trim()) openCatModal(catId => { wordsAddWord(catId, buf); buf = ''; renderText(); flashWordTree(); wtReset(); }, wordsTreeLoad, wordsFind);
+    return;
+  }
   if (wtLevel === 0) {
     wtCategory = chosen;
-    if (chosen === WT_SAVED_CAT) {
-      const saved = loadSaved();
-      if (!saved.length) return;           // nothing saved yet — stay put
-      if (saved.length <= 10) {
-        wtBucket = WT_SAVED_CAT;
-        wtLevel  = 2;
-        wtItems  = [WT_BACK, ...saved];
-      } else {
-        wtLevel  = 1;
-        wtItems  = [WT_BACK, ...savedBucketKeys(saved)];
-      }
+    const buckets = Object.keys(WT_DATA[wtCategory]);
+    if (buckets.length === 1) {
+      // Skip bucket level — go straight to words
+      wtBucket = buckets[0];
+      wtLevel  = 2;
+      wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
     } else {
-      const buckets = Object.keys(WT_DATA[wtCategory]);
-      if (buckets.length === 1) {
-        // Skip bucket level — go straight to words
-        wtBucket = buckets[0];
-        wtLevel  = 2;
-        wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
-      } else {
-        wtLevel  = 1;
-        wtItems  = [WT_BACK, ...buckets];
-      }
+      wtLevel  = 1;
+      wtItems  = [WT_BACK, ...buckets];
     }
     wtIdx = 0;
   } else if (wtLevel === 1) {
     wtBucket = chosen;
     wtLevel  = 2;
-    wtItems  = wtCategory === WT_SAVED_CAT
-      ? [WT_BACK, ...savedForBucket(loadSaved(), chosen)]
-      : [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
+    wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
     wtIdx    = 0;
   } else {
     // Level 2: actual word — append to buffer, then return to top level
@@ -318,20 +665,11 @@ function wtSelectCurrent() {
 }
 
 function wtGoBack() {
-  const rootItems = () => [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK];
+  const rootItems = () => [...Object.keys(WT_DATA), WT_SPEAK, ...(cfg.enabledModes?.telegram ? [WT_TELEGRAM] : []), WT_KATEG];
   if (wtLevel === 2) {
-    // For Gespeichert with ≤10 entries we skipped level 1 — go straight to root.
-    if (wtCategory === WT_SAVED_CAT && loadSaved().length <= 10) {
-      wtLevel    = 0;
-      wtCategory = null;
-      wtItems    = rootItems();
-    } else {
-      wtLevel  = 1;
-      wtBucket = null;
-      wtItems  = wtCategory === WT_SAVED_CAT
-        ? [WT_BACK, ...savedBucketKeys(loadSaved())]
-        : [WT_BACK, ...Object.keys(WT_DATA[wtCategory])];
-    }
+    wtLevel  = 1;
+    wtBucket = null;
+    wtItems  = [WT_BACK, ...Object.keys(WT_DATA[wtCategory])];
     wtIdx = 0;
   } else if (wtLevel === 1) {
     wtLevel    = 0;
@@ -381,79 +719,493 @@ function flashWordTree() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Sätze mode — browse and speak saved phrases
+// Sätze mode — navigate category tree, assemble phrases, speak or send
 // ─────────────────────────────────────────────────────────────────────────
-const ST_BACK  = '← Zurück';
-const ST_EMPTY = '(Keine Sätze)';
+const ST_BACK     = '← Zurück';
+const ST_SPEAK    = '↵ Sprechen';
+const ST_TELEGRAM = '↵ Telegram';
+const ST_SAVE     = '↵ Speichern';
 
-let stLevel  = 0;
-let stBucket = null;
-let stItems  = [];
-let stIdx    = 0;
+let stStack = ['root'];   // navigation path: array of category IDs
+let stItems = [];         // current wheel items (strings or category objects)
+let stIdx   = 0;
+
+function stItemLabel(item) {
+  return typeof item === 'string' ? item : '▶ ' + item.name;
+}
+
+function stBuildItems(catId) {
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  const items = [];
+  if (stStack.length > 1) items.push(ST_BACK);
+  if (cat) {
+    items.push(...cat.children);
+    items.push(...cat.phrases);
+  }
+  if (cfg.enabledModes?.telegram) items.push(ST_TELEGRAM);
+  items.push(ST_SPEAK, ST_SAVE);
+  return items;
+}
 
 function stReset() {
-  stLevel  = 0;
-  stBucket = null;
-  const saved = loadSaved();
-  if (saved.length === 0) {
-    stItems = [ST_EMPTY];
-  } else if (saved.length <= 10) {
-    stItems = [...saved];
-  } else {
-    stItems = savedBucketKeys(saved);
-  }
-  stIdx = 0;
+  stStack = ['root'];
+  stItems = stBuildItems('root');
+  stIdx   = 0;
   renderSätze();
   updateStBreadcrumb();
 }
 
 function stSelectCurrent() {
   const chosen = stItems[stIdx];
-  if (chosen === ST_EMPTY) return;
-  if (chosen === ST_BACK) { stReset(); return; }
-  const saved = loadSaved();
-  if (stLevel === 0 && saved.length > 10) {
-    // chosen is a T9 bucket key — drill in
-    stBucket = chosen;
-    stLevel  = 1;
-    stItems  = [ST_BACK, ...savedForBucket(saved, chosen)];
-    stIdx    = 0;
+  if (!chosen) return;
+  if (chosen === ST_BACK) {
+    stStack.pop();
+    stItems = stBuildItems(stStack[stStack.length - 1]);
+    stIdx   = 0;
     renderSätze();
     updateStBreadcrumb();
-  } else {
-    // chosen is a phrase — speak it
-    addHistory(chosen, 'spoken');
-    tts(chosen);
-    flashSätze();
+    return;
   }
+  if (chosen === ST_SPEAK) {
+    if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
+    flashSätze();
+    return;
+  }
+  if (chosen === ST_TELEGRAM) {
+    if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); flashSätze(); });
+    return;
+  }
+  if (chosen === ST_SAVE) {
+    if (buf.trim()) openCatModal(catId => { sätzeAddPhrase(catId, buf); flashSätze(); });
+    return;
+  }
+  if (typeof chosen === 'object') {
+    // Sub-category — drill in
+    stStack.push(chosen.id);
+    stItems = stBuildItems(chosen.id);
+    stIdx   = 0;
+    renderSätze();
+    updateStBreadcrumb();
+    return;
+  }
+  // Phrase — append to buffer, return to root
+  buf += (buf.length > 0 && buf.slice(-1) !== ' ') ? ' ' + chosen : chosen;
+  renderText();
+  flashSätze();
+  stReset();
 }
 
 function renderSätze() {
   const total = stItems.length;
-  if (total === 0) return;
+  if (!total) return;
   stIdx = ((stIdx % total) + total) % total;
   const itemAt = off => stItems[((stIdx + off) % total + total) % total];
 
-  document.getElementById('st-p2').textContent = itemAt(-2);
-  document.getElementById('st-p1').textContent = itemAt(-1);
+  document.getElementById('st-p2').textContent = stItemLabel(itemAt(-2));
+  document.getElementById('st-p1').textContent = stItemLabel(itemAt(-1));
 
   const mainEl  = document.getElementById('st-main');
   const current = itemAt(0);
-  mainEl.textContent = current;
-  mainEl.classList.toggle('st-back',  current === ST_BACK);
-  mainEl.classList.toggle('st-empty', current === ST_EMPTY);
+  mainEl.textContent = stItemLabel(current);
+  mainEl.classList.toggle('st-back',   current === ST_BACK);
+  mainEl.classList.toggle('st-action', current === ST_SPEAK || current === ST_TELEGRAM || current === ST_SAVE);
+  mainEl.classList.toggle('st-cat',    typeof current === 'object');
 
-  document.getElementById('st-n1').textContent = itemAt(+1);
-  document.getElementById('st-n2').textContent = itemAt(+2);
+  document.getElementById('st-n1').textContent = stItemLabel(itemAt(+1));
+  document.getElementById('st-n2').textContent = stItemLabel(itemAt(+2));
 }
 
 function updateStBreadcrumb() {
   const el = document.getElementById('wt-breadcrumb');
-  el.textContent = stLevel === 0 ? 'Sätze' : `Sätze › ${stBucket}`;
+  if (!el) return;
+  if (stStack.length <= 1) { el.textContent = 'Sätze'; return; }
+  const tree = sätzeTreeLoad();
+  el.textContent = stStack.map(id => sätzeFind(tree, id)?.name || id).join(' › ');
 }
 
 function flashSätze() {
   const el = document.getElementById('st-main');
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 150);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Category selection modal
+// Opens when user saves a phrase or creates a category — lets them pick
+// where in the sätze tree to place it.
+// ─────────────────────────────────────────────────────────────────────────
+const CAT_HIER = '✓ Hier';
+const CAT_BACK = '← Zurück';
+
+let catModalOpen         = false;
+let catModalCallback     = null;
+let catModalStack        = ['root'];
+let catModalItems        = [];
+let catModalIdx          = 0;
+let catModalTreeLoader   = sätzeTreeLoad;
+let catModalTreeFind     = sätzeFind;
+let catModalPhraseMode   = false;   // when true: list phrases, no CAT_HIER
+let catModalPhraseSelect = null;    // callback(phrase, catId)
+
+function catModalBuildItems() {
+  const catId = catModalStack[catModalStack.length - 1];
+  const tree  = catModalTreeLoader();
+  const cat   = catModalTreeFind(tree, catId);
+  const items = [];
+  if (catModalStack.length > 1) items.push(CAT_BACK);
+  if (!catModalPhraseMode) items.push(CAT_HIER);
+  if (cat) {
+    items.push(...cat.children);
+    if (catModalPhraseMode)
+      for (const p of cat.phrases) items.push({ _type: 'phrase', text: p, catId });
+  }
+  return items;
+}
+
+function openCatModal(callback, treeLoader, treeFind, title) {
+  catModalCallback     = callback;
+  catModalPhraseMode   = false;
+  catModalPhraseSelect = null;
+  catModalTreeLoader   = treeLoader || sätzeTreeLoad;
+  catModalTreeFind     = treeFind   || sätzeFind;
+  catModalStack        = ['root'];
+  catModalItems        = catModalBuildItems();
+  catModalIdx          = Math.max(0, catModalItems.indexOf(CAT_HIER));
+  catModalOpen         = true;
+  document.getElementById('cat-modal-title').textContent = title || 'Kategorie wählen';
+  document.getElementById('cat-modal').classList.add('open');
+  renderCatModal();
+}
+
+function openCatModalPhrases(phraseCallback, treeLoader, treeFind, title, startCatId) {
+  catModalCallback     = null;
+  catModalPhraseMode   = true;
+  catModalPhraseSelect = phraseCallback;
+  catModalTreeLoader   = treeLoader || sätzeTreeLoad;
+  catModalTreeFind     = treeFind   || sätzeFind;
+  catModalStack        = [startCatId || 'root'];
+  catModalItems        = catModalBuildItems();
+  catModalIdx          = 0;
+  catModalOpen         = true;
+  document.getElementById('cat-modal-title').textContent = title || 'Eintrag wählen';
+  document.getElementById('cat-modal').classList.add('open');
+  renderCatModal();
+}
+
+function catModalClose() {
+  catModalOpen = false;
+  document.getElementById('cat-modal').classList.remove('open');
+}
+
+function catModalScroll(dir) {
+  catModalIdx = ((catModalIdx + dir) % catModalItems.length + catModalItems.length) % catModalItems.length;
+  renderCatModal();
+}
+
+function catModalSelect() {
+  const chosen = catModalItems[catModalIdx];
+  if (!chosen) return;
+  if (chosen === CAT_BACK) {
+    catModalStack.pop();
+    catModalItems = catModalBuildItems();
+    catModalIdx   = Math.max(0, catModalItems.indexOf(CAT_HIER));
+    renderCatModal();
+    return;
+  }
+  if (chosen === CAT_HIER) {
+    const catId = catModalStack[catModalStack.length - 1];
+    catModalClose();
+    if (catModalCallback) catModalCallback(catId);
+    return;
+  }
+  // Phrase item in phrase mode
+  if (catModalPhraseMode && chosen && typeof chosen === 'object' && chosen._type === 'phrase') {
+    catModalClose();
+    catModalPhraseMode = false;
+    if (catModalPhraseSelect) catModalPhraseSelect(chosen.text, chosen.catId);
+    return;
+  }
+  // Sub-category — drill in
+  catModalStack.push(chosen.id);
+  catModalItems = catModalBuildItems();
+  catModalIdx   = Math.max(0, catModalItems.indexOf(CAT_HIER));
+  renderCatModal();
+}
+
+function catModalCurrentPath() {
+  const tree  = catModalTreeLoader();
+  const parts = catModalStack.slice(1).map(id => catModalTreeFind(tree, id)?.name || id);
+  return '/' + (parts.length ? parts.join('/') + '/' : '');
+}
+
+function renderCatModal() {
+  const total  = catModalItems.length;
+  const itemAt = off => catModalItems[((catModalIdx + off) % total + total) % total];
+  const label  = item => {
+    if (item === CAT_HIER) return catModalCurrentPath();
+    if (typeof item === 'object' && item._type === 'phrase') return item.text;
+    return typeof item === 'string' ? item : '▶ ' + item.name;
+  };
+
+  document.getElementById('cat-modal-prev').textContent = label(itemAt(-1));
+  const mainEl = document.getElementById('cat-modal-main');
+  mainEl.textContent = label(itemAt(0));
+  mainEl.classList.toggle('cat-hier', itemAt(0) === CAT_HIER);
+  mainEl.classList.toggle('cat-back', itemAt(0) === CAT_BACK);
+  document.getElementById('cat-modal-next').textContent = label(itemAt(+1));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Manage mode — delete saved phrases, categories, and word-list entries
+// ─────────────────────────────────────────────────────────────────────────
+const MG_SÄTZE      = 'Sätze';
+const MG_WÖRTER     = 'Wörter';
+const MG_BACK       = '← Zurück';
+const MG_DELETE     = '✕ Löschen';
+const MG_OPEN       = '↵ Öffnen';
+const MG_NEW_CAT    = '+ Kategorie erstellen';
+const MG_RENAME_CAT = '✎ Kategorie umbenennen';
+const MG_MOVE_CAT    = '⇄ Kategorie verschieben';
+const MG_MOVE_WORD   = '⇄ Wort verschieben';
+const MG_MOVE_PHRASE = '⇄ Satz verschieben';
+
+let mgStack = [{ type: 'root' }];
+let mgItems = [];
+let mgIdx   = 0;
+
+function mgItemLabel(item) {
+  if (typeof item === 'string') return item;
+  if (item._type === 'cat')    return '▶ ' + item.name;
+  if (item._type === 'phrase') return item.text;
+  if (item._type === 'word')   return item.text;
+  return '';
+}
+
+function mgRebuildItems() {
+  const frame = mgStack[mgStack.length - 1];
+  switch (frame.type) {
+    case 'root':
+      mgItems = [MG_SÄTZE, MG_WÖRTER];
+      break;
+    case 'sätze': {
+      const hasBuf = buf.trim().length > 0;
+      mgItems = [MG_BACK, ...(hasBuf ? [MG_NEW_CAT, MG_RENAME_CAT] : []), MG_MOVE_CAT, MG_MOVE_PHRASE];
+      break;
+    }
+    case 'sätze-cat':
+      mgItems = [MG_BACK, MG_OPEN, MG_DELETE];
+      break;
+    case 'sätze-phrase':
+      mgItems = [MG_BACK, MG_DELETE];
+      break;
+    case 'wörter': {
+      const hasBuf = buf.trim().length > 0;
+      mgItems = [MG_BACK, ...(hasBuf ? [MG_NEW_CAT, MG_RENAME_CAT] : []), MG_MOVE_CAT, MG_MOVE_WORD];
+      break;
+    }
+    case 'wörter-cat':
+      mgItems = [MG_BACK, MG_OPEN, MG_DELETE];
+      break;
+    case 'wört-word':
+      mgItems = [MG_BACK, MG_DELETE];
+      break;
+    default:
+      mgItems = [MG_BACK];
+  }
+  mgIdx = 0;
+  renderManage();
+  updateMgBreadcrumb();
+}
+
+function mgReset() {
+  mgStack = [{ type: 'root' }];
+  mgRebuildItems();
+}
+
+function mgSelectCurrent() {
+  const chosen = mgItems[mgIdx];
+  if (!chosen) return;
+  const frame = mgStack[mgStack.length - 1];
+
+  if (chosen === MG_BACK) {
+    if (mgStack.length > 1) mgStack.pop();
+    mgRebuildItems();
+    return;
+  }
+
+  if (chosen === MG_DELETE) {
+    if (frame.type === 'sätze-phrase') {
+      const tree = sätzeTreeLoad();
+      const cat = sätzeFind(tree, frame.catId);
+      if (cat) { cat.phrases = cat.phrases.filter(p => p !== frame.text); sätzeTreeSave(tree); }
+    } else if (frame.type === 'sätze-cat') {
+      const tree = sätzeTreeLoad();
+      sätzeRemoveCat(tree, frame.catId);
+      sätzeTreeSave(tree);
+    } else if (frame.type === 'wörter-cat') {
+      const tree = wordsTreeLoad();
+      wordsRemoveCat(tree, frame.catId);
+      wordsTreeSave(tree);
+    } else if (frame.type === 'wört-word') {
+      const tree = wordsTreeLoad();
+      const cat  = wordsFind(tree, frame.catId);
+      if (cat) { cat.phrases = cat.phrases.filter(p => p !== frame.text); wordsTreeSave(tree); }
+    }
+    mgStack.pop();
+    mgRebuildItems();
+    flashManage();
+    return;
+  }
+
+  if (chosen === MG_OPEN && frame.type === 'sätze-cat') {
+    mgStack.pop();
+    mgStack.push({ type: 'sätze', catId: frame.catId });
+    mgRebuildItems();
+    return;
+  }
+
+  if (chosen === MG_OPEN && frame.type === 'wörter-cat') {
+    mgStack.pop();
+    mgStack.push({ type: 'wörter', catId: frame.catId });
+    mgRebuildItems();
+    return;
+  }
+
+  if (frame.type === 'root') {
+    if (chosen === MG_SÄTZE)  mgStack.push({ type: 'sätze',  catId: 'root' });
+    if (chosen === MG_WÖRTER) mgStack.push({ type: 'wörter', catId: 'root' });
+    mgRebuildItems();
+    return;
+  }
+
+  const isWörter = frame.type === 'wörter';
+
+  if (chosen === MG_NEW_CAT) {
+    if (!buf.trim()) { tts('Bitte zuerst den Kategorienamen im Textfeld eingeben.'); return; }
+    const name = buf.trim();
+    if (isWörter) {
+      openCatModal(parentId => { wordsAddCategory(name, parentId); mgRebuildItems(); flashManage(); }, wordsTreeLoad, wordsFind);
+    } else {
+      openCatModal(parentId => { sätzeAddCategory(name, parentId); mgRebuildItems(); flashManage(); });
+    }
+    return;
+  }
+
+  if (chosen === MG_RENAME_CAT) {
+    if (!buf.trim()) { tts('Bitte zuerst den neuen Namen im Textfeld eingeben.'); return; }
+    const newName = buf.trim();
+    if (isWörter) {
+      openCatModal(catId => { wordsRenameCategory(catId, newName); mgRebuildItems(); flashManage(); }, wordsTreeLoad, wordsFind);
+    } else {
+      openCatModal(catId => { sätzeRenameCategory(catId, newName); mgRebuildItems(); flashManage(); });
+    }
+    return;
+  }
+
+  if (chosen === MG_MOVE_CAT) {
+    if (isWörter) {
+      openCatModal(sourceCatId => {
+        const srcName = wordsFind(wordsTreeLoad(), sourceCatId)?.name || sourceCatId;
+        openCatModal(
+          destParentId => { wordsMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); },
+          wordsTreeLoad, wordsFind,
+          `/${srcName}/ verschieben nach:`
+        );
+      }, wordsTreeLoad, wordsFind, 'Zu verschiebende Kategorie:');
+    } else {
+      openCatModal(sourceCatId => {
+        const srcName = sätzeFind(sätzeTreeLoad(), sourceCatId)?.name || sourceCatId;
+        openCatModal(
+          destParentId => { sätzeMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); },
+          null, null,
+          `/${srcName}/ verschieben nach:`
+        );
+      }, null, null, 'Zu verschiebende Kategorie:');
+    }
+    return;
+  }
+
+  if (chosen === MG_MOVE_PHRASE && frame.type === 'sätze') {
+    openCatModal(sourceCatId => {
+      openCatModalPhrases((phrase, fromCatId) => {
+        openCatModal(toCatId => {
+          sätzeMovePhraseToCategory(phrase, fromCatId, toCatId);
+          mgRebuildItems(); flashManage();
+        }, null, null, `„${phrase.length > 20 ? phrase.slice(0,20)+'…' : phrase}" verschieben nach:`);
+      }, null, null, 'Satz auswählen:', sourceCatId);
+    }, null, null, 'Quellkategorie wählen:');
+    return;
+  }
+
+  if (chosen === MG_MOVE_WORD && frame.type === 'wörter') {
+    openCatModal(sourceCatId => {
+      openCatModalPhrases((word, fromCatId) => {
+        openCatModal(toCatId => {
+          wordsMovePhraseToCategory(word, fromCatId, toCatId);
+          mgRebuildItems(); flashManage();
+        }, wordsTreeLoad, wordsFind, `„${word}" verschieben nach:`);
+      }, wordsTreeLoad, wordsFind, 'Wort auswählen:', sourceCatId);
+    }, wordsTreeLoad, wordsFind, 'Quellkategorie wählen:');
+    return;
+  }
+
+  if (frame.type === 'sätze' && typeof chosen === 'object' && chosen._type === 'phrase') {
+    mgStack.push({ type: 'sätze-phrase', text: chosen.text, catId: chosen.catId });
+    mgRebuildItems();
+    return;
+  }
+
+  if (frame.type === 'wörter' && typeof chosen === 'object' && chosen._type === 'word') {
+    mgStack.push({ type: 'wört-word', text: chosen.text, catId: chosen.catId });
+    mgRebuildItems();
+  }
+}
+
+function renderManage() {
+  const total = mgItems.length;
+  if (!total) return;
+  mgIdx = ((mgIdx % total) + total) % total;
+  const itemAt = off => mgItems[((mgIdx + off) % total + total) % total];
+
+  document.getElementById('mg-p2').textContent = mgItemLabel(itemAt(-2));
+  document.getElementById('mg-p1').textContent = mgItemLabel(itemAt(-1));
+
+  const mainEl  = document.getElementById('mg-main');
+  const current = itemAt(0);
+  mainEl.textContent = mgItemLabel(current);
+  mainEl.classList.toggle('mg-back',       current === MG_BACK);
+  mainEl.classList.toggle('mg-delete',     current === MG_DELETE);
+  mainEl.classList.toggle('mg-open',       current === MG_OPEN);
+  mainEl.classList.toggle('mg-new-cat',    current === MG_NEW_CAT);
+  mainEl.classList.toggle('mg-rename-cat',  current === MG_RENAME_CAT);
+  mainEl.classList.toggle('mg-move-cat',    current === MG_MOVE_CAT);
+  mainEl.classList.toggle('mg-move-phrase', current === MG_MOVE_PHRASE);
+  mainEl.classList.toggle('mg-move-word',   current === MG_MOVE_WORD);
+  mainEl.classList.toggle('mg-cat',        typeof current === 'object' && current._type === 'cat');
+
+  document.getElementById('mg-n1').textContent = mgItemLabel(itemAt(+1));
+  document.getElementById('mg-n2').textContent = mgItemLabel(itemAt(+2));
+}
+
+function updateMgBreadcrumb() {
+  const el = document.getElementById('wt-breadcrumb');
+  if (!el) return;
+  const tree   = sätzeTreeLoad();
+  const labels = ['Verwalten'];
+  for (const f of mgStack.slice(1)) {
+    if (f.type === 'sätze')        labels.push(f.catId === 'root' ? 'Sätze' : (sätzeFind(tree, f.catId)?.name || ''));
+    else if (f.type === 'sätze-cat')    labels.push(f.name);
+    else if (f.type === 'sätze-phrase') labels.push(f.text.length > 18 ? f.text.slice(0, 18) + '…' : f.text);
+    else if (f.type === 'wörter')       labels.push('Wörter');
+    else if (f.type === 'wort-item')    labels.push(f.text.length > 18 ? f.text.slice(0, 18) + '…' : f.text);
+  }
+  el.textContent = labels.join(' › ');
+}
+
+function flashManage() {
+  const el = document.getElementById('mg-main');
+  if (!el) return;
   el.classList.add('flash');
   setTimeout(() => el.classList.remove('flash'), 150);
 }
@@ -477,6 +1229,13 @@ function renderSpelling() {
 
 function renderText() {
   document.getElementById('text-out').textContent = buf;
+  if (mode === 'manage') mgRebuildItems();
+  if (mode === 'autocomplete' && acLevel === 0) {
+    acItems = acBuildItems();
+    acIdx   = 0;
+    renderAutocomplete();
+    updateAcBreadcrumb();
+  }
 }
 
 function flashLetter() {
@@ -712,18 +1471,33 @@ function closeModeModal() {
 function handleBlink(dur) {
   // Long holds are handled mid-frame (see onResults); ignore them here.
   if (dur >= cfg.blinkMin && dur <= cfg.blinkMax) {
-    if (modeModalOpen) {
+    if (catModalOpen) {
+      catModalSelect();
+      showGaze('mid'); sndSelect();
+    } else if (typeof tgModalOpen !== 'undefined' && tgModalOpen) {
+      tgModalSelect();
+      showGaze('mid'); sndSelect();
+    } else if (modeModalOpen) {
       closeModeModal();
       cycleMode();
       sndModeChange();
     } else if (mode === 'spelling') {
       spSelectCurrent();
       showGaze('mid'); sndSelect();
+    } else if (mode === 'autocomplete') {
+      acSelectCurrent();
+      showGaze('mid'); sndSelect();
     } else if (mode === 'wordtree') {
       wtSelectCurrent();
       showGaze('mid'); sndSelect();
     } else if (mode === 'sätze') {
       stSelectCurrent();
+      showGaze('mid'); sndSelect();
+    } else if (mode === 'telegram') {
+      tmSelectCurrent();
+      showGaze('mid'); sndSelect();
+    } else if (mode === 'manage') {
+      mgSelectCurrent();
       showGaze('mid'); sndSelect();
     }
   }
@@ -943,7 +1717,19 @@ function onResults(results) {
   // Grace period of 1500 ms after modal opens: ignore gaze so that the
   // eye naturally opening after the hold doesn't immediately close the modal.
   const MODAL_GAZE_GRACE = 1500;
-  if (modeModalOpen && eyeOpenForGaze && !earBelowThresh && (now - modeModalStart) > MODAL_GAZE_GRACE) {
+  if (catModalOpen && eyeOpenForGaze && now - lastGazeTime > cfg.gazeDebounce) {
+    if (gazeVal < cfg.gazeUpThresh) {
+      catModalScroll(-1); showGaze('up'); sndUp(); lastGazeTime = now;
+    } else if (gazeVal > cfg.gazeDownThresh) {
+      catModalScroll(+1); showGaze('dn'); sndDown(); lastGazeTime = now;
+    }
+  } else if (typeof tgModalOpen !== 'undefined' && tgModalOpen && eyeOpenForGaze && now - lastGazeTime > cfg.gazeDebounce) {
+    if (gazeVal < cfg.gazeUpThresh) {
+      tgModalScroll(-1); showGaze('up'); sndUp(); lastGazeTime = now;
+    } else if (gazeVal > cfg.gazeDownThresh) {
+      tgModalScroll(+1); showGaze('dn'); sndDown(); lastGazeTime = now;
+    }
+  } else if (modeModalOpen && eyeOpenForGaze && !earBelowThresh && (now - modeModalStart) > MODAL_GAZE_GRACE) {
     const anyGaze = gazeVal < cfg.gazeUpThresh || gazeVal > cfg.gazeDownThresh;
     if (anyGaze && now - lastGazeTime > cfg.gazeDebounce) {
       closeModeModal();
@@ -954,9 +1740,18 @@ function onResults(results) {
       if (mode === 'spelling') {
         spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length;
         renderSpelling();
+      } else if (mode === 'autocomplete') {
+        acIdx = ((acIdx - 1) % acItems.length + acItems.length) % acItems.length;
+        renderAutocomplete();
       } else if (mode === 'sätze') {
         stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length;
         renderSätze();
+      } else if (mode === 'telegram') {
+        tmIdx = ((tmIdx - 1) % tmItems.length + tmItems.length) % tmItems.length;
+        renderTelegram();
+      } else if (mode === 'manage') {
+        mgIdx = ((mgIdx - 1) % mgItems.length + mgItems.length) % mgItems.length;
+        renderManage();
       } else {
         wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length;
         renderWordTree();
@@ -967,9 +1762,18 @@ function onResults(results) {
       if (mode === 'spelling') {
         spIdx = (spIdx + 1) % spItems.length;
         renderSpelling();
+      } else if (mode === 'autocomplete') {
+        acIdx = (acIdx + 1) % acItems.length;
+        renderAutocomplete();
       } else if (mode === 'sätze') {
         stIdx = (stIdx + 1) % stItems.length;
         renderSätze();
+      } else if (mode === 'telegram') {
+        tmIdx = (tmIdx + 1) % tmItems.length;
+        renderTelegram();
+      } else if (mode === 'manage') {
+        mgIdx = (mgIdx + 1) % mgItems.length;
+        renderManage();
       } else {
         wtIdx = (wtIdx + 1) % wtItems.length;
         renderWordTree();
@@ -1125,30 +1929,158 @@ function bindSettings() {
 // Keyboard fallback
 // ─────────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
+  if (catModalOpen) {
+    if (e.key === 'ArrowUp')   { catModalScroll(-1); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { catModalScroll(+1); e.preventDefault(); }
+    if (e.key === 'Enter' || e.key === ' ') { catModalSelect(); e.preventDefault(); }
+    if (e.key === 'Escape') { catModalClose(); e.preventDefault(); }
+    return;
+  }
+  if (typeof tgModalOpen !== 'undefined' && tgModalOpen) {
+    if (e.key === 'ArrowUp')   { tgModalScroll(-1); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { tgModalScroll(+1); e.preventDefault(); }
+    if (e.key === 'Enter' || e.key === ' ') { tgModalSelect(); e.preventDefault(); }
+    if (e.key === 'Escape') { tgModalClose(); e.preventDefault(); }
+    return;
+  }
   if (e.key === 'Escape') {
     cycleMode(); e.preventDefault();
   } else if (e.key === 'ArrowUp' && mode !== 'inactive') {
-    if (mode === 'spelling') { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
-    else if (mode === 'sätze') { stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length; renderSätze(); }
+    if (mode === 'spelling')           { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
+    else if (mode === 'autocomplete')  { acIdx = ((acIdx - 1) % acItems.length + acItems.length) % acItems.length; renderAutocomplete(); }
+    else if (mode === 'sätze')    { stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length; renderSätze(); }
+    else if (mode === 'telegram') { tmIdx = ((tmIdx - 1) % tmItems.length + tmItems.length) % tmItems.length; renderTelegram(); }
+    else if (mode === 'manage')   { mgIdx = ((mgIdx - 1) % mgItems.length + mgItems.length) % mgItems.length; renderManage(); }
     else { wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length; renderWordTree(); }
     showGaze('up'); e.preventDefault();
   } else if (e.key === 'ArrowDown' && mode !== 'inactive') {
-    if (mode === 'spelling') { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
-    else if (mode === 'sätze') { stIdx = (stIdx + 1) % stItems.length; renderSätze(); }
+    if (mode === 'spelling')           { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
+    else if (mode === 'autocomplete')  { acIdx = (acIdx + 1) % acItems.length; renderAutocomplete(); }
+    else if (mode === 'sätze')    { stIdx = (stIdx + 1) % stItems.length; renderSätze(); }
+    else if (mode === 'telegram') { tmIdx = (tmIdx + 1) % tmItems.length; renderTelegram(); }
+    else if (mode === 'manage')   { mgIdx = (mgIdx + 1) % mgItems.length; renderManage(); }
     else { wtIdx = (wtIdx + 1) % wtItems.length; renderWordTree(); }
     showGaze('dn'); e.preventDefault();
   } else if ((e.key === 'Enter' || e.key === ' ') && mode !== 'inactive') {
-    if (mode === 'spelling') spSelectCurrent();
-    else if (mode === 'sätze') stSelectCurrent();
-    else wtSelectCurrent();
+    if (mode === 'spelling')          spSelectCurrent();
+    else if (mode === 'autocomplete') acSelectCurrent();
+    else if (mode === 'sätze')    stSelectCurrent();
+    else if (mode === 'telegram') tmSelectCurrent();
+    else if (mode === 'manage')   mgSelectCurrent();
+    else                          wtSelectCurrent();
     showGaze('mid'); e.preventDefault();
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+// Click-to-select (testing / accessibility fallback)
+// Clicking a centre slot selects it; clicking an adjacent slot scrolls.
+// ─────────────────────────────────────────────────────────────────────────
+function bindWheelClicks() {
+  const bindWheel = (ids, modeGuard, selectFn, scrollFn) => {
+    const [p2, p1, main, n1, n2] = ids.map(id => document.getElementById(id));
+    main.addEventListener('click', () => { if (modeGuard()) { selectFn(); sndSelect(); } });
+    [[p2,-2],[p1,-1],[n1,+1],[n2,+2]].forEach(([el, d]) =>
+      el.addEventListener('click', () => { if (modeGuard()) { scrollFn(d); d < 0 ? sndUp() : sndDown(); } })
+    );
+  };
+
+  bindWheel(['l-p2','l-p1','letter-main','l-n1','l-n2'],
+    () => mode === 'spelling',
+    spSelectCurrent,
+    d => { spIdx = ((spIdx+d)%spItems.length+spItems.length)%spItems.length; renderSpelling(); });
+
+  bindWheel(['ac-p2','ac-p1','ac-main','ac-n1','ac-n2'],
+    () => mode === 'autocomplete',
+    acSelectCurrent,
+    d => { acIdx = ((acIdx+d)%acItems.length+acItems.length)%acItems.length; renderAutocomplete(); });
+
+  bindWheel(['wt-p2','wt-p1','wt-main','wt-n1','wt-n2'],
+    () => mode === 'wordtree',
+    wtSelectCurrent,
+    d => { wtIdx = ((wtIdx+d)%wtItems.length+wtItems.length)%wtItems.length; renderWordTree(); });
+
+  bindWheel(['st-p2','st-p1','st-main','st-n1','st-n2'],
+    () => mode === 'sätze',
+    stSelectCurrent,
+    d => { stIdx = ((stIdx+d)%stItems.length+stItems.length)%stItems.length; renderSätze(); });
+
+  bindWheel(['tm-p2','tm-p1','tm-main','tm-n1','tm-n2'],
+    () => mode === 'telegram',
+    () => tmSelectCurrent(),
+    d => { tmIdx = ((tmIdx+d)%tmItems.length+tmItems.length)%tmItems.length; renderTelegram(); });
+
+  bindWheel(['mg-p2','mg-p1','mg-main','mg-n1','mg-n2'],
+    () => mode === 'manage',
+    mgSelectCurrent,
+    d => { mgIdx = ((mgIdx+d)%mgItems.length+mgItems.length)%mgItems.length; renderManage(); });
+
+  // Category selection modal
+  document.getElementById('cat-modal-main').addEventListener('click', () => { if (catModalOpen) { catModalSelect(); sndSelect(); } });
+  document.getElementById('cat-modal-prev').addEventListener('click', () => { if (catModalOpen) { catModalScroll(-1); sndUp(); } });
+  document.getElementById('cat-modal-next').addEventListener('click', () => { if (catModalOpen) { catModalScroll(+1); sndDown(); } });
+
+  // Telegram contact modal
+  document.getElementById('tgcw-main').addEventListener('click', () => { if (typeof tgModalOpen !== 'undefined' && tgModalOpen) { tgModalSelect(); sndSelect(); } });
+  document.getElementById('tgcw-prev').addEventListener('click', () => { if (typeof tgModalOpen !== 'undefined' && tgModalOpen) { tgModalScroll(-1); sndUp(); } });
+  document.getElementById('tgcw-next').addEventListener('click', () => { if (typeof tgModalOpen !== 'undefined' && tgModalOpen) { tgModalScroll(+1); sndDown(); } });
+
+  // Mouse-wheel scroll on main wheel
+  document.getElementById('wheel').addEventListener('wheel', e => {
+    e.preventDefault();
+    const d = e.deltaY > 0 ? 1 : -1;
+    if (mode === 'spelling')           { spIdx = ((spIdx+d)%spItems.length+spItems.length)%spItems.length; renderSpelling(); }
+    else if (mode === 'autocomplete')  { acIdx = ((acIdx+d)%acItems.length+acItems.length)%acItems.length; renderAutocomplete(); }
+    else if (mode === 'wordtree') { wtIdx = ((wtIdx+d)%wtItems.length+wtItems.length)%wtItems.length; renderWordTree(); }
+    else if (mode === 'sätze')    { stIdx = ((stIdx+d)%stItems.length+stItems.length)%stItems.length; renderSätze(); }
+    else if (mode === 'telegram') { tmIdx = ((tmIdx+d)%tmItems.length+tmItems.length)%tmItems.length; renderTelegram(); }
+    else if (mode === 'manage')   { mgIdx = ((mgIdx+d)%mgItems.length+mgItems.length)%mgItems.length; renderManage(); }
+    d < 0 ? sndUp() : sndDown();
+  }, { passive: false });
+
+  // Mouse-wheel scroll on category modal
+  document.getElementById('cat-modal-card').addEventListener('wheel', e => {
+    if (!catModalOpen) return;
+    e.preventDefault();
+    const d = e.deltaY > 0 ? 1 : -1;
+    catModalScroll(d); d < 0 ? sndUp() : sndDown();
+  }, { passive: false });
+
+  // Mouse-wheel scroll on telegram contact modal
+  document.getElementById('tg-contact-card').addEventListener('wheel', e => {
+    if (typeof tgModalOpen === 'undefined' || !tgModalOpen) return;
+    e.preventDefault();
+    const d = e.deltaY > 0 ? 1 : -1;
+    tgModalScroll(d); d < 0 ? sndUp() : sndDown();
+  }, { passive: false });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────
+const WT_CAT_NAMES = { Häufig: 'Häufig', Verb: 'Verben', Nomen: 'Nomen', Adjektiv: 'Adjektive', Andere: 'Andere' };
+
+function wordsInitDefaults() {
+  const tree = wordsTreeLoad();
+  if (tree.children.length > 0) return;
+  for (const [topKey, buckets] of Object.entries(WT_DATA)) {
+    const catName = WT_CAT_NAMES[topKey] || topKey;
+    const topCat  = { id: sätzeGenId(), name: catName, children: [], phrases: [] };
+    tree.children.push(topCat);
+    for (const [bucketName, words] of Object.entries(buckets)) {
+      if (topKey === 'Häufig') {
+        for (const w of words) topCat.phrases.push(w);
+      } else {
+        const sub = { id: sätzeGenId(), name: bucketName, children: [], phrases: [...words] };
+        topCat.children.push(sub);
+      }
+    }
+  }
+  wordsTreeSave(tree);
+}
+
 (function init() {
+  wordsInitDefaults();
   spReset();
   renderText();
   bindSettings();
@@ -1172,15 +2104,28 @@ document.addEventListener('keydown', e => {
     saveCfg();
   });
 
-  ['inactive', 'wordtree', 'spelling', 'sätze'].forEach(m => {
+  ['inactive', 'wordtree', 'spelling', 'autocomplete', 'sätze', 'telegram', 'manage'].forEach(m => {
     const cb = document.getElementById(`s-m-${m}`);
     cb.checked = cfg.enabledModes[m] !== false;
     cb.addEventListener('change', () => {
       cfg.enabledModes[m] = cb.checked;
       if (mode === m && !cfg.enabledModes[m]) {
-        // Current mode disabled — jump to first available mode, or inactive if none
         mode = activeModes()[0] ?? 'inactive';
         applyMode();
+      }
+      // Restart Telegram polling when its mode is toggled
+      if (m === 'telegram' && typeof tgStopPolling !== 'undefined') {
+        tgStopPolling(); tgStartPolling();
+      }
+      if (m === 'telegram' && typeof tgUpdateSendBtn !== 'undefined') {
+        tgUpdateSendBtn();
+      }
+      // Redraw the current wheel in case it includes Telegram as an action
+      if (m === 'telegram') {
+        if (mode === 'spelling')      { spReset(); }
+        else if (mode === 'autocomplete') { acItems = acBuildItems(); acIdx = 0; renderAutocomplete(); }
+        else if (mode === 'wordtree') { wtReset(); }
+        else if (mode === 'sätze')    { stItems = stBuildItems(stStack[stStack.length - 1]); stIdx = 0; renderSätze(); }
       }
       saveCfg();
     });
@@ -1219,6 +2164,8 @@ document.addEventListener('keydown', e => {
   // Start button: unlocks Web Audio + Speech Synthesis synchronously (iOS
   // requires both to be triggered directly inside a user-gesture handler),
   // then starts the camera.
+  bindWheelClicks();
+
   document.getElementById('start-btn').addEventListener('click', () => {
     // Unlock all Audio elements — must happen synchronously inside this gesture.
     unlockAudio();

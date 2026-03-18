@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iSpeak – Über die App</title>
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+
+<header>
+  <h1>iSpeak</h1>
+  <a href="index.html">← Zurück zur App</a>
+  <a href="anleitung.html">Anleitung</a>
+</header>
+
+<div class="lead">
+  iSpeak ist eine barrierefreie Kommunikationshilfe für Menschen, die ihre Stimme verloren haben oder ihre Hände nicht mehr einsetzen können – steuerbar allein durch Augenbewegungen und Blinzeln.
+</div>
+
+<h2>Was ist iSpeak?</h2>
+<p>
+  iSpeak ist eine quelloffene Web-Anwendung zur unterstützten Kommunikation (AAC – Augmentative and Alternative Communication). Sie läuft vollständig im Browser, benötigt keine Installation und speichert alle Daten lokal auf dem Gerät – es werden keine persönlichen Daten an Server übertragen.
+</p>
+<p>
+  Die App richtet sich an Menschen mit schweren motorischen Einschränkungen, etwa durch ALS (Amyotrophe Lateralsklerose), Locked-in-Syndrom, Schlaganfall oder ähnliche Erkrankungen. Mit einer einfachen Frontkamera lässt sich die gesamte Oberfläche ohne Hände bedienen.
+</p>
+
+<h2>Wie funktioniert die Steuerung?</h2>
+<p>
+  iSpeak nutzt die Kamera des Geräts, um die Augen in Echtzeit zu verfolgen (Eye-Tracking via MediaPipe FaceMesh). Die Bedienung erfolgt über drei Gesten:
+</p>
+<ul>
+  <li><strong>Blick nach oben</strong> – scrollt die Auswahl nach oben</li>
+  <li><strong>Blick nach unten</strong> – scrollt die Auswahl nach unten</li>
+  <li><strong>Blinzeln</strong> – bestätigt die aktuell angezeigte Option</li>
+</ul>
+<p>
+  Zum Wechsel zwischen den Modi hält man das Auge für ca. 3 Sekunden geschlossen. Ein Kalibrierungsassistent hilft dabei, das System auf die individuellen Augenbewegungen abzustimmen.
+</p>
+
+<h2>Was kann iSpeak?</h2>
+<ul>
+  <li><strong>Buchstabieren</strong> – Wörter und Sätze über eine T9-ähnliche Buchstabenauswahl zusammenstellen</li>
+  <li><strong>Wortbaum</strong> – vordefinierte Wörter nach Kategorien (Verben, Nomen, Adjektive u. a.) schnell einfügen</li>
+  <li><strong>Sätze</strong> – gespeicherte Phrasen aus einer eigenen Bibliothek abrufen</li>
+  <li><strong>Sprechen</strong> – den zusammengestellten Text per Text-to-Speech vorlesen lassen</li>
+  <li><strong>Telegram</strong> – Nachrichten direkt an Kontakte senden und empfangen</li>
+  <li><strong>Verwalten</strong> – Wörter und Sätze in Kategorien organisieren, umbenennen und verschieben</li>
+</ul>
+
+<h2>Wo werden die Daten gespeichert?</h2>
+<p>
+  Alle Wörter, Sätze, Kategorien und Einstellungen werden ausschließlich im lokalen Speicher des Browsers (<code>localStorage</code>) gespeichert. Es findet keine Übertragung an externe Server statt. Die Kamerabilder werden ausschließlich lokal im Browser verarbeitet und nie gespeichert oder übertragen.
+</p>
+<p>
+  Die Verwaltung der gespeicherten Inhalte ist über <a href="storage.html">Speicher verwalten</a> möglich.
+</p>
+
+<h2>Technologie</h2>
+<ul>
+  <li>Reines HTML, CSS und JavaScript – keine Frameworks, keine Abhängigkeiten außer MediaPipe</li>
+  <li>Eye-Tracking: <a href="https://google.github.io/mediapipe/" target="_blank" rel="noopener">Google MediaPipe FaceMesh</a></li>
+  <li>Text-to-Speech: Web Speech API des Browsers</li>
+  <li>Messaging: Telegram Bot API (optional, erfordert eigenen Bot-Token)</li>
+  <li>Wort-Ergänzung: <a href="https://github.com/enz/german-wordlist" target="_blank" rel="noopener">german-wordlist</a> – ca. 686 000 flektierte deutsche Wortformen (CC0, gemeinfrei)</li>
+</ul>
+
+<h2>Danksagung</h2>
+<p>iSpeak wäre ohne die folgenden freien Ressourcen und Dienste nicht möglich. Herzlicher Dank gilt:</p>
+
+<h3>Google MediaPipe</h3>
+<p>
+  Das Eye-Tracking basiert auf
+  <a href="https://github.com/google/mediapipe" target="_blank" rel="noopener"><strong>MediaPipe FaceMesh</strong></a>
+  und <strong>MediaPipe Camera Utils</strong> von Google LLC.
+  MediaPipe erkennt in Echtzeit 468 Gesichts-Landmarken inklusive Iris-Position und ermöglicht so die
+  berührungsfreie Steuerung allein durch Augenbewegungen.
+  Die Bibliotheken stehen unter der
+  <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache-2.0</a>-Lizenz.
+  Vielen Dank an das MediaPipe-Team und alle Beitragenden für dieses leistungsfähige, frei verfügbare Framework.
+</p>
+
+<h3>german-wordlist</h3>
+<p>
+  Die Wortvorschläge im Ergänzungs-Modus basieren auf der Wortliste
+  <a href="https://github.com/enz/german-wordlist" target="_blank" rel="noopener"><strong>german-wordlist</strong></a>
+  von <strong>Philipp Enz</strong> und den zahlreichen Beitragenden dieses Projekts.
+  Die Liste enthält ca. 686 000 flektierte deutsche Wortformen und steht unter der
+  <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0-1.0</a>-Lizenz (gemeinfrei).
+  Vielen Dank für diese wertvolle, frei zugängliche Ressource.
+</p>
+
+<h3>Telegram</h3>
+<p>
+  Der Telegram-Modus nutzt die öffentlich zugängliche
+  <a href="https://core.telegram.org/bots/api" target="_blank" rel="noopener"><strong>Telegram Bot API</strong></a>.
+  Dank Telegram können Nutzerinnen und Nutzer Nachrichten direkt aus der App heraus senden und empfangen –
+  ohne eigene Server-Infrastruktur. Die Telegram Bot API ist kostenlos und frei nutzbar.
+</p>
+
+<h3>Web Speech API</h3>
+<p>
+  Die Text-to-Speech-Funktion verwendet die im Browser eingebaute
+  <strong>Web Speech API</strong> (Sprachsynthese).
+  Diese standardisierte Browser-API ermöglicht es, zusammengestellten Text mit natürlicher Stimme vorlesen zu lassen,
+  ohne externe Bibliotheken oder Cloud-Dienste. Dank gilt den Browser-Herstellern –
+  insbesondere Apple (Safari / iOS) und Google (Chrome) – für die Implementierung dieser API,
+  die iSpeak auch auf mobilen Geräten nutzbar macht.
+</p>
+
+<h2>Lizenz &amp; Quellcode</h2>
+<p>
+  iSpeak ist freie Software unter der <strong>MIT-Lizenz</strong>. Der Quellcode ist auf
+  <a href="https://github.com/dheldt/iSpeak/" target="_blank" rel="noopener">GitHub</a> verfügbar.
+  Beiträge und Verbesserungsvorschläge sind willkommen.
+</p>
+<p>Entwickelt von <strong>Daniel Heldt</strong>, 2026.</p>
+
+<footer>
+  <a href="index.html">App starten</a> ·
+  <a href="anleitung.html">Anleitung</a> ·
+  <a href="storage.html">Speicher verwalten</a> ·
+  <a href="impressum.html">Impressum</a> ·
+  <a href="datenschutzerklaerung.html">Datenschutz</a>
+</footer>
+
+</body>
+</html>

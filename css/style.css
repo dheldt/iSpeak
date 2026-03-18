@@ -192,6 +192,31 @@ body {
   width: 100%;
 }
 
+/* ── Autocomplete sub-panel ───────────────────────────────── */
+#wheel-autocomplete {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+}
+
+#ac-main {
+  font-size: 11vmin;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  transition: color 0.2s;
+  cursor: pointer;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+#ac-main.flash         { color: #4af; }
+#ac-main.ac-suggestion { color: #6d6; font-weight: 400; font-size: 8vmin; }
+
 /* ── Word-tree sub-panel ──────────────────────────────────── */
 #wheel-wordtree {
   display: none;
@@ -201,6 +226,36 @@ body {
   flex: 1;
   width: 100%;
 }
+
+/* ── Telegram mode sub-panel ────────────────────────────── */
+#wheel-telegram {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+}
+
+#tm-main {
+  font-size: 8vmin;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+#tm-main.flash   { color: #4af; }
+/* Conversation view: smaller font to fit message text */
+#wheel-telegram.tm-conv #tm-main      { font-size: 4.5vmin; font-weight: 400; }
+#wheel-telegram.tm-conv .wt-adj.near  { font-size:   4vmin; }
+#wheel-telegram.tm-conv .wt-adj       { font-size: 3.2vmin; }
+
+#wheel.inactive #tm-main { color: #222 !important; }
 
 /* ── Sätze sub-panel ─────────────────────────────────────── */
 #wheel-sätze {
@@ -222,10 +277,49 @@ body {
   word-break: break-word;
   overflow-wrap: break-word;
   transition: color 0.2s;
+  cursor: pointer;
 }
-#st-main.flash   { color: #4af; }
-#st-main.st-back { font-weight: 400; }
+#st-main.flash    { color: #4af; }
+#st-main.st-back  { font-weight: 400; }
 #st-main.st-empty { color: #333; font-weight: 400; }
+#st-main.st-action { color: #4af; font-weight: 400; }
+#st-main.st-cat    { color: #fa8; }
+
+/* ── Manage sub-panel ────────────────────────────────────── */
+#wheel-manage {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+}
+
+#mg-main {
+  font-size: 6vmin;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  transition: color 0.2s;
+  padding: 0 0.5em;
+  cursor: pointer;
+}
+#mg-main.flash     { color: #4af; }
+#mg-main.mg-back    { font-weight: 400; color: #555; }
+#mg-main.mg-delete  { color: #f64; font-weight: 700; }
+#mg-main.mg-open    { color: #4af; font-weight: 400; }
+#mg-main.mg-cat     { color: #fa8; }
+#mg-main.mg-new-cat    { color: #6d6; font-weight: 400; }
+#mg-main.mg-rename-cat  { color: #adf; font-weight: 400; }
+#mg-main.mg-move-cat    { color: #fd8; font-weight: 400; }
+#mg-main.mg-move-phrase { color: #fd8; font-weight: 400; }
+#mg-main.mg-move-word   { color: #fd8; font-weight: 400; }
+
+#wheel.inactive #mg-main { color: #222 !important; }
 
 .wt-adj {
   font-size: 5vmin;
@@ -236,6 +330,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 .wt-adj.near {
   font-size: 8vmin;
@@ -253,6 +348,7 @@ body {
   word-break: break-word;
   overflow-wrap: break-word;
   transition: color 0.2s;
+  cursor: pointer;
 }
 #wt-main.flash    { color: #4af; }
 #wt-main.wt-back  { font-weight: 400; }
@@ -280,6 +376,7 @@ body {
   line-height: 1;
   text-align: center;
   width: 100%;
+  cursor: pointer;
 }
 .adj.near {
   font-size: 11vmin;
@@ -295,15 +392,19 @@ body {
   text-align: center;
   width: 100%;
   transition: color 0.2s;
+  cursor: pointer;
 }
 #letter-main.flash { color: #4af; }
 
 /* ── Inactive mode overlay ────────────────────────────────── */
 #wheel.inactive #letter-main,
+#wheel.inactive #ac-main,
 #wheel.inactive .adj,
 #wheel.inactive #wt-main,
 #wheel.inactive .wt-adj,
-#wheel.inactive #st-main { color: #222 !important; }
+#wheel.inactive #st-main,
+#wheel.inactive #st-main.st-action,
+#wheel.inactive #mg-main { color: #222 !important; }
 
 #mode-hint {
   position: absolute;
@@ -338,6 +439,9 @@ body {
 #mode-badge.inactive { background: #2a1a1a; color: #a55; border: 1px solid #5a2a2a; }
 #mode-badge.wordtree { background: #1a1a3a; color: #88f; border: 1px solid #2a2a8a; }
 #mode-badge.sätze    { background: #2a1a0a; color: #fa8; border: 1px solid #7a4a1a; }
+#mode-badge.telegram { background: #0d1a2a; color: #6af; border: 1px solid #1a4a8a; }
+#mode-badge.manage   { background: #1a2a1a; color: #6d6; border: 1px solid #2a6a2a; }
+#mode-badge.autocomplete { background: #1a2a2a; color: #6dd; border: 1px solid #2a7a7a; }
 
 /* ── Text panel (right column) ────────────────────────────── */
 #text-panel {
@@ -626,6 +730,91 @@ body {
   #portrait-hint { display: flex; }
 }
 
+/* ── Telegram contact-selection modal ────────────────────── */
+#tg-contact-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+#tg-contact-modal.open { display: flex; }
+#tg-contact-card {
+  background: #111;
+  border: 2px solid #2a4a8a;
+  border-radius: 12px;
+  padding: 2.5rem 5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 340px;
+}
+#tg-contact-title {
+  font-size: 1.4vmin;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.6rem;
+}
+.tgcw-adj  { font-size: 5vmin;  color: #333; line-height: 1; cursor: pointer; }
+.tgcw-main { font-size: 8vmin;  color: #fff; font-weight: 700; line-height: 1; cursor: pointer; }
+.tgcw-main.tg-cancel { color: #555; font-weight: 400; }
+#tg-contact-hint {
+  font-size: 1.4vmin;
+  color: #444;
+  margin-top: 0.8rem;
+}
+
+/* ── Category selection modal ────────────────────────────── */
+#cat-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.80);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+#cat-modal.open { display: flex; }
+#cat-modal-card {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 1.6rem 2rem;
+  min-width: 36vw;
+  max-width: 60vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+#cat-modal-title {
+  font-size: 1.5vmin;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.2rem;
+}
+#cat-modal-path {
+  font-size: 1.4vmin;
+  color: #fa8;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+  word-break: break-all;
+}
+.cat-adj  { font-size: 4.5vmin; color: #333; line-height: 1; cursor: pointer; }
+.cat-main { font-size: 7.5vmin; color: #fff; font-weight: 700; line-height: 1.1; text-align: center; cursor: pointer; }
+.cat-main.cat-hier { color: #4d4; }
+.cat-main.cat-back { color: #555; font-weight: 400; }
+#cat-modal-hint {
+  font-size: 1.4vmin;
+  color: #444;
+  margin-top: 0.8rem;
+}
+
 /* ── Mode-change confirmation modal ──────────────────────── */
 #mode-modal {
   display: none;
@@ -669,6 +858,193 @@ body {
   border-radius: 3px;
   transition: width 0.1s linear;
 }
+
+/* ── Telegram button (top bar) ────────────────────────────── */
+#tg-btn {
+  position: fixed;
+  top: 0.5rem;
+  right: 6.5rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #666;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+}
+#tg-btn:hover    { color: #aaa; border-color: #555; }
+#tg-btn.connected { color: #6af; border-color: #2a4a8a; background: #0d0d1a; }
+#tg-btn.unread    { color: #fa8; border-color: #7a4a1a; background: #1a0d00; }
+
+/* ── Telegram message overlay ─────────────────────────────── */
+#tg-overlay {
+  display: none;
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(380px, 100vw);
+  background: #080808;
+  border-left: 1px solid #1a1a1a;
+  z-index: 50;
+  flex-direction: column;
+}
+#tg-overlay.open { display: flex; }
+
+#tg-overlay-header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0;
+}
+#tg-overlay-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #aaa;
+}
+.tg-status {
+  font-size: 11px;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  background: #111;
+  color: #555;
+  border: 1px solid #222;
+}
+.tg-status.tg-ok   { color: #6f6; border-color: #2a4a2a; }
+.tg-status.tg-err  { color: #f66; border-color: #4a2a2a; }
+.tg-status.tg-busy { color: #fa8; border-color: #4a3a1a; }
+
+#tg-close-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+}
+#tg-close-btn:hover { color: #aaa; background: #1a1a1a; }
+
+#tg-msg-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.tg-empty {
+  font-size: 13px;
+  color: #333;
+  text-align: center;
+  margin-top: 2rem;
+}
+.tg-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 88%;
+}
+.tg-msg.tg-in  { align-self: flex-start; }
+.tg-msg.tg-out { align-self: flex-end; align-items: flex-end; }
+.tg-meta {
+  font-size: 11px;
+  color: #444;
+}
+.tg-bubble {
+  display: inline-block;
+  font-size: 14px;
+  color: #ccc;
+  background: #111;
+  border: 1px solid #222;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.tg-out .tg-bubble {
+  background: #0d0d2a;
+  border-color: #2a2a6a;
+  color: #aaf;
+}
+.tg-play-btn {
+  background: #0d1a0d;
+  border: 1px solid #2a4a2a;
+  color: #6f6;
+  padding: 0.35rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.tg-play-btn:hover { background: #162a16; }
+
+/* ── Telegram send button (text panel) ───────────────────────── */
+#tg-send-btn {
+  margin-top: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  background: #0d0d2a;
+  border: 1px solid #2a2a8a;
+  color: #88f;
+  font-size: 2.5vmin;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.05em;
+}
+#tg-send-btn:hover  { background: #141436; border-color: #4a4aaa; }
+#tg-send-btn:active { background: #1a1a4a; }
+
+/* ── Settings: section headers & text inputs ─────────────────── */
+.s-section {
+  font-size: 11px;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 1.4rem 0 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #1a1a1a;
+}
+.s-text-input {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  color: #aaa;
+  padding: 0.35rem 0.5rem;
+  border-radius: 3px;
+  font-size: 13px;
+  flex: 2;
+}
+.s-text-input::placeholder { color: #333; }
+.s-text-input:focus { outline: none; border-color: #555; }
+
+/* ── Contact list in settings ────────────────────────────────── */
+#tg-contact-list { margin-bottom: 0.5rem; }
+.tg-empty-contacts {
+  font-size: 12px;
+  color: #444;
+  line-height: 1.5;
+  padding: 0.5rem 0;
+}
+.tg-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid #111;
+  font-size: 13px;
+}
+.tg-contact-name { flex: 1; color: #888; }
+.tg-contact-id   { color: #444; font-size: 11px; }
+.tg-rm-btn {
+  background: none;
+  border: none;
+  color: #444;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+}
+.tg-rm-btn:hover { color: #f66; background: #1a0a0a; }
 
 /* ── Footer ───────────────────────────────────────────────── */
 #footer {

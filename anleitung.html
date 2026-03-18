@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iSpeak – Anleitung</title>
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+
+<header>
+  <h1>iSpeak – Anleitung</h1>
+  <a href="index.html">← Zurück zur App</a>
+  <a href="about.html">Über iSpeak</a>
+</header>
+
+<nav class="toc">
+  <h2>Inhalt</h2>
+  <ol>
+    <li><a href="#erste-schritte">Erste Schritte</a></li>
+    <li><a href="#steuerung">Steuerung mit den Augen</a></li>
+    <li><a href="#kalibrierung">Kalibrierung</a></li>
+    <li><a href="#modi">Die Modi im Überblick</a></li>
+    <li><a href="#modus-wechsel">Modus wechseln</a></li>
+    <li><a href="#buchstaben">Modus: Buchstaben</a></li>
+    <li><a href="#wortbaum">Modus: Wortbaum</a></li>
+    <li><a href="#saetze">Modus: Sätze</a></li>
+    <li><a href="#telegram">Modus: Telegram</a></li>
+    <li><a href="#verwalten">Modus: Verwalten</a></li>
+    <li><a href="#speicher">Speicher verwalten</a></li>
+    <li><a href="#backup">Datensicherung (Backup)</a></li>
+    <li><a href="#einstellungen">Einstellungen</a></li>
+    <li><a href="#tastatur">Tastatur-Fallback</a></li>
+  </ol>
+</nav>
+
+<!-- ── 1 ── -->
+<section id="erste-schritte">
+  <h2>1. Erste Schritte</h2>
+  <p>
+    iSpeak läuft direkt im Browser und benötigt keine Installation. Beim ersten Öffnen der Seite erscheint ein Startbildschirm mit dem Knopf <strong>„Tippen zum Starten"</strong>. Dieser Tipp ist notwendig, damit der Browser Kamera und Ton aktivieren darf (Sicherheitsanforderung auf mobilen Geräten).
+  </p>
+  <p>
+    Nach dem Tippen startet die Kamera automatisch und die Augen-Erkennung beginnt. Das App-Layout besteht aus drei Bereichen:
+  </p>
+  <ul>
+    <li><strong>Links:</strong> Kamerabild mit Augenerkennung und Statusanzeige</li>
+    <li><strong>Mitte:</strong> Das Auswahlrad (zeigt je nach Modus Buchstaben, Wörter oder Optionen)</li>
+    <li><strong>Rechts:</strong> Das Textfeld mit dem bisher zusammengestellten Satz</li>
+  </ul>
+  <div class="tip">
+    <strong>Tipp:</strong> iSpeak funktioniert am besten im Querformat auf einem Tablet oder Laptop. Das Gerät sollte so aufgestellt sein, dass die Kamera die Augen frontal erfasst.
+  </div>
+</section>
+
+<!-- ── 2 ── -->
+<section id="steuerung">
+  <h2>2. Steuerung mit den Augen</h2>
+  <p>Die gesamte Bedienung von iSpeak erfolgt über drei Augengesten:</p>
+  <table>
+    <tr>
+      <th>Geste</th>
+      <th>Wirkung</th>
+    </tr>
+    <tr>
+      <td><span class="gesture">Blick nach oben</span></td>
+      <td>Auswahl nach oben scrollen (vorherige Option anzeigen)</td>
+    </tr>
+    <tr>
+      <td><span class="gesture">Blick nach unten</span></td>
+      <td>Auswahl nach unten scrollen (nächste Option anzeigen)</td>
+    </tr>
+    <tr>
+      <td><span class="gesture">Blinzeln</span></td>
+      <td>Aktuelle Option auswählen / bestätigen</td>
+    </tr>
+    <tr>
+      <td><span class="gesture">Auge geschlossen halten (~3 s)</span></td>
+      <td>Modus wechseln (Bestätigungsdialog erscheint)</td>
+    </tr>
+  </table>
+  <p>
+    Das Auswahlrad zeigt stets fünf Einträge: den aktuell ausgewählten in der Mitte, zwei darüber und zwei darunter. Der mittlere Eintrag wird durch Blinzeln ausgewählt.
+  </p>
+  <p>
+    Oben links zeigt ein farbiger Badge den aktuellen Modus an (z. B. <strong>INAKTIV</strong>, <strong>BUCHSTABEN</strong>, <strong>WORTBAUM</strong> usw.). Die kleinen Punkte am Kamerabild zeigen an, in welche Richtung das Auge gerade blickt.
+  </p>
+  <div class="note">
+    <strong>Hinweis:</strong> Normales Blinzeln (z. B. zur Augenpflege) wird von iSpeak ignoriert, sofern es kürzer als die eingestellte Mindestblinzeldauer ist. Die Schwellenwerte lassen sich in den Einstellungen anpassen.
+  </div>
+</section>
+
+<!-- ── 3 ── -->
+<section id="kalibrierung">
+  <h2>3. Kalibrierung</h2>
+  <p>
+    Damit iSpeak die Augenbewegungen nach oben und unten zuverlässig erkennt, muss das System einmalig kalibriert werden. Die Kalibrierung ist jederzeit über <strong>⚙ Settings → Kalibrieren</strong> aufrufbar.
+  </p>
+  <p>Der Kalibrierungsassistent führt in drei Schritten durch den Prozess:</p>
+  <ol>
+    <li><strong>Geradeaus schauen</strong> – Neutralposition erfassen</li>
+    <li><strong>Nach oben schauen</strong> – obere Blickgrenze erfassen</li>
+    <li><strong>Nach unten schauen</strong> – untere Blickgrenze erfassen</li>
+  </ol>
+  <p>
+    Für jeden Schritt gibt es einen Countdown-Balken. Die erfassten Werte werden gespeichert und beim nächsten Seitenaufruf automatisch geladen.
+  </p>
+  <div class="tip">
+    <strong>Tipp:</strong> Die Kalibrierung bei guter Beleuchtung durchführen. Das Gesicht sollte frontal zur Kamera ausgerichtet sein und sich möglichst nicht bewegen.
+  </div>
+</section>
+
+<!-- ── 4 ── -->
+<section id="modi">
+  <h2>4. Die Modi im Überblick</h2>
+  <p>iSpeak kennt sechs Modi. Welche aktiv sind, lässt sich in den Einstellungen festlegen.</p>
+  <table>
+    <tr>
+      <th>Modus</th>
+      <th>Beschreibung</th>
+    </tr>
+    <tr>
+      <td><strong>Inaktiv</strong></td>
+      <td>Keine Eingabe möglich. Das Auswahlrad ist deaktiviert. Nützlich bei Pausen.</td>
+    </tr>
+    <tr>
+      <td><strong>Wortbaum</strong></td>
+      <td>Schnelles Einfügen von Wörtern aus vordefinierten Kategorien (Verben, Nomen, Adjektive …)</td>
+    </tr>
+    <tr>
+      <td><strong>Buchstaben</strong></td>
+      <td>Freies Buchstabieren über ein T9-ähnliches System. Jede Taste enthält mehrere Buchstaben.</td>
+    </tr>
+    <tr>
+      <td><strong>Sätze</strong></td>
+      <td>Gespeicherte Phrasen und Sätze aus einer persönlichen Bibliothek abrufen und sprechen.</td>
+    </tr>
+    <tr>
+      <td><strong>Telegram</strong></td>
+      <td>Nachrichten über den Telegram-Messenger senden und empfangen.</td>
+    </tr>
+    <tr>
+      <td><strong>Verwalten</strong></td>
+      <td>Kategorien und Einträge in Wörter- und Satz-Bibliothek verwalten.</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ── 5 ── -->
+<section id="modus-wechsel">
+  <h2>5. Modus wechseln</h2>
+  <p>
+    Um den Modus zu wechseln, hält man das Auge für ca. <strong>3 Sekunden geschlossen</strong>. Ein Fortschrittsbalken zeigt den Haltezustand an. Danach erscheint ein Bestätigungsdialog:
+  </p>
+  <ul>
+    <li><span class="gesture">Blinzeln</span> → Modus wechseln (zum nächsten aktivierten Modus)</li>
+    <li><span class="gesture">Blick bewegen oder warten</span> → Abbrechen, im aktuellen Modus bleiben</li>
+  </ul>
+  <p>
+    Die Reihenfolge der Modi ist: Inaktiv → Wortbaum → Buchstaben → Sätze → Telegram → Verwalten → (wieder Inaktiv). Deaktivierte Modi werden übersprungen.
+  </p>
+</section>
+
+<!-- ── 6 ── -->
+<section id="buchstaben">
+  <h2>6. Modus: Buchstaben</h2>
+  <p>
+    Im Buchstaben-Modus kann jedes beliebige Wort oder jeder Satz buchstabiert werden. Das Rad zeigt zunächst Tastengruppen nach T9-Prinzip (wie auf einem alten Mobiltelefon):
+  </p>
+  <ul>
+    <li><strong>abc</strong> → A, B, C, Ä</li>
+    <li><strong>def</strong> → D, E, F</li>
+    <li><strong>ghi</strong> → G, H, I</li>
+    <li>… usw.</li>
+  </ul>
+  <p>
+    Nach Auswahl einer Gruppe erscheinen die einzelnen Buchstaben. Durch Blinzeln auf einen Buchstaben wird er dem Text hinzugefügt. Danach kehrt das Rad automatisch zur Gruppenebene zurück.
+  </p>
+
+  <h3>Sonderfunktionen im Buchstaben-Modus</h3>
+  <table>
+    <tr><th>Option</th><th>Funktion</th></tr>
+    <tr><td><strong>␣</strong></td><td>Leerzeichen einfügen</td></tr>
+    <tr><td><strong>DEL</strong></td><td>Letztes Zeichen löschen</td></tr>
+    <tr><td><strong>CLR</strong></td><td>Gesamten Text löschen</td></tr>
+    <tr><td><strong>Sprechen</strong></td><td>Text per Text-to-Speech vorlesen und löschen</td></tr>
+    <tr><td><strong>Speichern</strong></td><td>Aktuellen Text als Wort in eine Kategorie der Wörter-Bibliothek speichern. Kategorie muss gewählt werden.</td></tr>
+    <tr><td><strong>Telegram</strong></td><td>Aktuellen Text als Telegram-Nachricht senden</td></tr>
+  </table>
+</section>
+
+<!-- ── 7 ── -->
+<section id="wortbaum">
+  <h2>7. Modus: Wortbaum</h2>
+  <p>
+    Der Wortbaum ermöglicht das schnelle Einfügen von Wörtern aus einer strukturierten Wortliste ohne Buchstabieren. Das Rad zeigt zunächst die Hauptkategorien:
+  </p>
+  <ul>
+    <li><strong>Häufig</strong> – oft genutzte Kurzwörter (ja, nein, bitte, danke …)</li>
+    <li><strong>Verb</strong> – Verben nach Anfangsbuchstabe gruppiert</li>
+    <li><strong>Nomen</strong> – Nomen nach Anfangsbuchstabe gruppiert</li>
+    <li><strong>Adjektiv</strong> – Adjektive nach Anfangsbuchstabe gruppiert</li>
+    <li><strong>Andere</strong> – Pronomen, Zahlen, Zeitangaben, Fragen, Konnektoren</li>
+    <li><strong>Gespeichert</strong> – eigene gespeicherte Wörter</li>
+  </ul>
+  <p>
+    Nach Auswahl einer Kategorie erscheinen Unterkategorien (Buchstabengruppen), danach die einzelnen Wörter. Durch Blinzeln auf ein Wort wird es dem Text hinzugefügt.
+  </p>
+
+  <h3>Sonderfunktionen im Wortbaum-Modus</h3>
+  <table>
+    <tr><th>Option</th><th>Funktion</th></tr>
+    <tr><td><strong>↵ Sprechen</strong></td><td>Aktuellen Text vorlesen und löschen</td></tr>
+    <tr><td><strong>↵ Telegram</strong></td><td>Aktuellen Text als Telegram-Nachricht senden</td></tr>
+    <tr><td><strong>↵ Speichern</strong></td><td>Aktuellen Text als Wort in die Wörter-Bibliothek speichern</td></tr>
+  </table>
+</section>
+
+<!-- ── 8 ── -->
+<section id="saetze">
+  <h2>8. Modus: Sätze</h2>
+  <p>
+    Im Sätze-Modus können häufig genutzte Phrasen und vollständige Sätze aus einer persönlichen Bibliothek abgerufen werden. Sätze sind in Kategorien organisiert, die beliebig tief verschachtelt werden können.
+  </p>
+  <p>
+    Das Rad zeigt zunächst die Hauptkategorien. Nach Auswahl einer Kategorie erscheinen deren Unterkategorien und gespeicherte Sätze. Durch Blinzeln auf einen Satz wird er dem Textfeld hinzugefügt.
+  </p>
+
+  <h3>Aktionen nach dem Auswählen eines Satzes</h3>
+  <table>
+    <tr><th>Option</th><th>Funktion</th></tr>
+    <tr><td><strong>↵ Sprechen</strong></td><td>Text sofort vorlesen und löschen</td></tr>
+    <tr><td><strong>↵ Telegram</strong></td><td>Text als Telegram-Nachricht senden</td></tr>
+    <tr><td><strong>↵ Speichern</strong></td><td>Text als neuen Satz in einer wählbaren Kategorie speichern</td></tr>
+    <tr><td><strong>← Zurück</strong></td><td>Zur übergeordneten Kategorie zurückgehen</td></tr>
+  </table>
+
+  <h3>Sätze anlegen</h3>
+  <p>
+    Sätze werden gespeichert, indem man im Buchstaben- oder Wortbaum-Modus einen Text zusammenstellt und dann <strong>Speichern</strong> auswählt. Ein Kategoriedialog öffnet sich, in dem man den Speicherort wählt. Neue Kategorien können im Modus <strong>Verwalten</strong> oder über <a href="storage.html">Speicher verwalten</a> angelegt werden.
+  </p>
+</section>
+
+<!-- ── 9 ── -->
+<section id="telegram">
+  <h2>9. Modus: Telegram</h2>
+
+  <h3>Was ist Telegram?</h3>
+  <p>
+    <a href="https://telegram.org" target="_blank" rel="noopener">Telegram</a> ist ein kostenloser, plattformübergreifender Instant-Messenger. Er ist verfügbar als App für
+    <a href="https://telegram.org/dl/android" target="_blank" rel="noopener">Android</a>,
+    <a href="https://telegram.org/dl/ios" target="_blank" rel="noopener">iPhone/iPad</a>,
+    <a href="https://desktop.telegram.org" target="_blank" rel="noopener">Windows/Mac/Linux</a>
+    sowie als <a href="https://web.telegram.org" target="_blank" rel="noopener">Web-Version</a>.
+    Telegram-Konten werden über eine Mobilfunknummer registriert. Der Dienst ist weit verbreitet und ermöglicht es, mit Angehörigen, Pflegepersonen oder Freunden in Kontakt zu bleiben.
+  </p>
+
+  <h3>Warum Telegram?</h3>
+  <p>
+    Die Integration von Telegram in iSpeak erfolgte ausschließlich aus <strong>pragmatischen Gründen der einfachen Anbindung</strong>: Telegram stellt eine öffentliche Bot-API bereit, die ohne Registrierung eines Entwicklerkontos, ohne OAuth-Prozesse und ohne Backend-Server direkt aus dem Browser angesprochen werden kann.
+  </p>
+  <div class="note">
+    <strong>Hinweis zum Datenschutz:</strong> Telegram wurde <em>nicht</em> aufgrund besonderer Sicherheits- oder Datenschutzeigenschaften gewählt. Wer verschlüsselte Kommunikation benötigt, sollte die Datenschutzrichtlinien von Telegram prüfen und ggf. alternative Messenger in Betracht ziehen. iSpeak selbst überträgt keine Daten an eigene Server – lediglich die Telegram-API wird direkt kontaktiert, wenn die Telegram-Funktion aktiv genutzt wird.
+  </div>
+
+  <h3>Einrichtung Schritt für Schritt</h3>
+  <ol>
+    <li>
+      <strong>Telegram installieren und registrieren:</strong> Die App auf dem Gerät der pflegenden Person (oder dem eigenen Gerät) installieren und ein Konto mit einer Mobilfunknummer anlegen.
+    </li>
+    <li>
+      <strong>Einen Bot erstellen:</strong> In Telegram den offiziellen Bot <strong>@BotFather</strong> suchen und eine Konversation starten. Mit dem Befehl <code>/newbot</code> einen neuen Bot anlegen. BotFather fragt nach einem Namen (z. B. „MeinISpeakBot") und einem Benutzernamen (muss auf <em>bot</em> enden, z. B. <code>meiniSpeak_bot</code>). Anschließend liefert BotFather einen <strong>Bot-Token</strong> – eine lange Zeichenkette wie <code>123456789:ABCdef…</code>.
+    </li>
+    <li>
+      <strong>Token in iSpeak eintragen:</strong> In der App unter <strong>⚙ Settings → Telegram → Bot Token</strong> den Token eingeben und speichern.
+    </li>
+    <li>
+      <strong>Chat-ID ermitteln:</strong> Die empfangende Person (z. B. eine Angehörige) muss dem Bot einmalig eine beliebige Nachricht schicken, damit Telegram die Verbindung freischaltet. Die Chat-ID lässt sich am einfachsten über den Bot <strong>@userinfobot</strong> herausfinden: diesem Bot eine Nachricht schicken – er antwortet mit der eigenen Telegram-ID (eine Zahl wie <code>987654321</code>).
+    </li>
+    <li>
+      <strong>Kontakt anlegen:</strong> In iSpeak unter <strong>⚙ Settings → Telegram → Senden an</strong> einen Namen und die Chat-ID eintragen und auf <strong>+</strong> klicken. Es können mehrere Kontakte gespeichert werden.
+    </li>
+  </ol>
+  <div class="tip">
+    <strong>Tipp:</strong> Die gesamte Einrichtung (Schritte 1–5) wird am besten von einer pflegenden Person oder einem Angehörigen vorgenommen, bevor die App dem Nutzer übergeben wird.
+  </div>
+
+  <h3>Nachrichten senden</h3>
+  <p>
+    Sobald ein Text im Textfeld steht, kann er über mehrere Wege gesendet werden:
+  </p>
+  <ul>
+    <li>Im <strong>Telegram-Modus</strong>: Das Auswahlrad zeigt die gespeicherten Kontakte. Durch Blinzeln auf einen Kontakt wird der Text sofort als Nachricht gesendet.</li>
+    <li>In <strong>anderen Modi</strong>: Die Option <strong>Telegram</strong> im Auswahlrad öffnet einen Kontaktdialog. Den gewünschten Empfänger auswählen – die Nachricht wird gesendet und der Text gelöscht.</li>
+    <li>Über den <strong>✈ Telegram senden</strong>-Knopf im Textbereich (rechts).</li>
+  </ul>
+
+  <h3>Nachrichten empfangen</h3>
+  <p>
+    iSpeak ruft eingehende Nachrichten regelmäßig über die Telegram-API ab (Long Polling). Das Intervall ist einstellbar:
+  </p>
+  <ul>
+    <li><strong>Automatisch</strong> – Nachrichten werden alle 60 Sekunden (Standard) abgerufen</li>
+    <li><strong>Manuell</strong> – nur nach Klick auf <strong>📨 Jetzt abrufen</strong> in den Einstellungen</li>
+    <li>Das Intervall lässt sich von 30 Sekunden bis 60 Minuten einstellen</li>
+  </ul>
+  <p>
+    Neue Nachrichten erscheinen im Telegram-Overlay, das über den <strong>✈ Button</strong> oben rechts geöffnet wird. Bis zu 50 Nachrichten werden lokal gespeichert.
+  </p>
+
+  <h3>Weiterführende Informationen</h3>
+  <ul>
+    <li><a href="https://telegram.org" target="_blank" rel="noopener">Telegram – offizielle Website</a></li>
+    <li><a href="https://core.telegram.org/bots" target="_blank" rel="noopener">Telegram Bot API – Dokumentation (englisch)</a></li>
+    <li><a href="https://core.telegram.org/bots/tutorial" target="_blank" rel="noopener">Telegram Bot – Einsteiger-Tutorial (englisch)</a></li>
+  </ul>
+</section>
+
+<!-- ── 10 ── -->
+<section id="verwalten">
+  <h2>10. Modus: Verwalten</h2>
+  <p>
+    Der Verwalten-Modus ermöglicht die Organisation der Wörter- und Satz-Bibliothek direkt über die Augensteuerung. Er ist für gelegentliche Pflegearbeiten gedacht; für umfangreichere Änderungen empfiehlt sich <a href="storage.html">Speicher verwalten</a>.
+  </p>
+
+  <h3>Hauptmenü</h3>
+  <p>Das Rad zeigt: <strong>Sätze</strong> und <strong>Wörter</strong>. Durch Blinzeln öffnet sich der jeweilige Bereich.</p>
+
+  <h3>Kategorien verwalten (Sätze &amp; Wörter)</h3>
+  <table>
+    <tr><th>Option</th><th>Beschreibung</th></tr>
+    <tr>
+      <td><strong>+ Kategorie erstellen</strong></td>
+      <td>
+        Erstellt eine neue Kategorie. Vorher muss der Kategoriename als Text im Textfeld stehen
+        (z. B. im Buchstaben-Modus eingeben). Dann Kategorie erstellen auswählen und den
+        gewünschten Elternordner im Kategoriedialog wählen.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>✎ Kategorie umbenennen</strong></td>
+      <td>
+        Benennt eine bestehende Kategorie um. Der neue Name muss vorher im Textfeld stehen.
+        Dann die zu benennende Kategorie im Dialog wählen.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>⇄ Kategorie verschieben</strong></td>
+      <td>
+        Verschiebt eine Kategorie (mit allen Inhalten) an eine andere Stelle im Baum.
+        Zuerst die zu verschiebende Kategorie wählen, dann das neue Elternverzeichnis.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>⇄ Wort/Satz verschieben</strong></td>
+      <td>
+        Verschiebt einen einzelnen Eintrag in eine andere Kategorie.
+        Zuerst Quellkategorie wählen, dann den Eintrag, dann die Zielkategorie.
+      </td>
+    </tr>
+  </table>
+
+  <h3>Kategoriedialog</h3>
+  <p>
+    Beim Erstellen, Umbenennen oder Verschieben öffnet sich ein Kategoriedialog. Er zeigt:
+  </p>
+  <ul>
+    <li>Den aktuellen Pfad als auswählbaren Eintrag (z. B. <strong>/</strong> oder <strong>/Verben/</strong>) – Blinzeln speichert hier</li>
+    <li><strong>← Zurück</strong> – eine Ebene nach oben</li>
+    <li>Alle Unterkategorien des aktuellen Ordners</li>
+  </ul>
+  <p>
+    Durch Blinzeln auf eine Unterkategorie navigiert man hinein. Der Pfadeintrag in der Mitte zeigt immer den aktuellen Speicherort an.
+  </p>
+</section>
+
+<!-- ── 11 ── -->
+<section id="speicher">
+  <h2>11. Speicher verwalten</h2>
+  <p>
+    Über <a href="storage.html"><strong>Speicher verwalten</strong></a> steht eine komfortable Desktop-Oberfläche zur Verfügung, um Wörter und Sätze zu organisieren. Sie hat zwei Reiter:
+  </p>
+
+  <h3>Reiter: Wörter</h3>
+  <ul>
+    <li>Zeigt die gesamte Wörter-Bibliothek als aufklappbaren Kategoriebaum</li>
+    <li>Kategorien können per Klick auf <strong>+ Kategorie</strong> ergänzt werden</li>
+    <li>Einzelne Wörter können mit <strong>+ Wort</strong> hinzugefügt, mit <strong>✕</strong> gelöscht oder mit <strong>→</strong> in eine andere Kategorie verschoben werden</li>
+    <li><strong>⟳ Default Wörter</strong> füllt fehlende Standardwörter aus dem eingebauten Wortschatz auf</li>
+  </ul>
+
+  <h3>Reiter: Sätze</h3>
+  <ul>
+    <li>Zeigt die gespeicherten Sätze in einer Kategoriestruktur</li>
+    <li>Kategorien und Sätze können hinzugefügt, gelöscht und verschoben werden</li>
+    <li>Zum Verschieben eines Satzes auf <strong>→</strong> klicken und das Ziel im Dialog wählen</li>
+  </ul>
+
+  <div class="tip">
+    <strong>Tipp:</strong> Die Speicher-Seite eignet sich gut für die Ersteinrichtung durch pflegende Angehörige oder Therapeuten, bevor die App dem Nutzer übergeben wird.
+  </div>
+</section>
+
+<!-- ── 12 ── -->
+<section id="backup">
+  <h2>12. Datensicherung (Backup)</h2>
+  <p>
+    Alle Daten von iSpeak – Wörter, Sätze, Kategorien, Einstellungen und der Telegram-Verlauf – werden ausschließlich im lokalen Browserspeicher (<code>localStorage</code>) des Geräts abgelegt. Dieser Speicher kann verloren gehen, wenn der Browser-Cache geleert wird, der Browser deinstalliert wird, das Gerät zurückgesetzt oder ausgetauscht wird oder ein Systemfehler auftritt.
+  </p>
+
+  <div class="note">
+    <strong>Wichtig – regelmäßige Backups sind unbedingt empfohlen.</strong> Alle Wörter, Sätze und Kategorien, die über die Augensteuerung mühsam aufgebaut wurden, können bei einem Datenverlust nicht automatisch wiederhergestellt werden. Das erneute Aufbauen einer persönlichen Wort- und Satzbibliothek über die Augensteuerung allein ist äußerst aufwändig und zeitintensiv. Ein regelmäßig erstelltes Backup schützt vor diesem Verlust.
+  </div>
+
+  <h3>Backup erstellen (Export)</h3>
+  <p>
+    Auf der Seite <a href="storage.html"><strong>Speicher verwalten</strong></a> findet sich oben die Schaltfläche <strong>⬇ Backup exportieren</strong>. Ein Klick darauf lädt eine JSON-Datei mit dem Namen <code>ispeak-backup-DATUM.json</code> herunter. Diese Datei enthält alle gespeicherten Daten und sollte an einem sicheren Ort aufbewahrt werden (z. B. Cloud-Speicher, E-Mail an sich selbst, USB-Stick).
+  </p>
+  <p>
+    Das Backup enthält:
+  </p>
+  <ul>
+    <li>Alle Einstellungen (Kalibrierung, Empfindlichkeit, aktivierte Modi, Telegram-Zugangsdaten)</li>
+    <li>Die gesamte Wörter-Bibliothek mit Kategoriestruktur</li>
+    <li>Die gesamte Satz-Bibliothek mit Kategoriestruktur</li>
+    <li>Den Telegram-Nachrichtenverlauf</li>
+  </ul>
+
+  <h3>Backup wiederherstellen (Import)</h3>
+  <p>
+    Über <strong>⬆ Backup importieren</strong> auf der Seite <a href="storage.html">Speicher verwalten</a> lässt sich eine zuvor exportierte Backup-Datei auswählen. Nach einer Bestätigungsabfrage werden alle Daten wiederhergestellt und die Ansicht aktualisiert. Der vorherige Speicherinhalt wird dabei vollständig überschrieben.
+  </p>
+
+  <div class="tip">
+    <strong>Empfehlung:</strong> Backups am besten von einer pflegenden Person oder einem Angehörigen regelmäßig – z. B. einmal pro Woche – über einen Computer oder ein Tablet erstellt und gespeichert werden. Der Nutzer selbst muss dafür nicht aktiv werden.
+  </div>
+</section>
+
+<!-- ── 13 ── -->
+<section id="einstellungen">
+  <h2>13. Einstellungen</h2>
+  <p>
+    Die Einstellungen öffnen sich über den <strong>⚙ Settings</strong>-Knopf unten links. Sie sind in folgende Bereiche gegliedert:
+  </p>
+
+  <h3>Allgemein</h3>
+  <table>
+    <tr><th>Einstellung</th><th>Beschreibung</th></tr>
+    <tr><td>Kalibrieren</td><td>Startet den Kalibrierungsassistenten</td></tr>
+    <tr><td>🔔 Sound</td><td>Klickgeräusche bei Auswahl an/aus</td></tr>
+    <tr><td>📷 Kamera</td><td>Kamerabild ein-/ausblenden (Augen-Tracking läuft weiter)</td></tr>
+  </table>
+
+  <h3>Modi</h3>
+  <p>Jeder Modus kann einzeln aktiviert oder deaktiviert werden. Deaktivierte Modi werden beim Moduswechsel übersprungen.</p>
+
+  <h3>Augen &amp; Empfindlichkeit</h3>
+  <table>
+    <tr><th>Parameter</th><th>Bedeutung</th></tr>
+    <tr><td>Auge</td><td>Welches Auge wird verfolgt (links oder rechts)</td></tr>
+    <tr><td>Blick unten aktiv</td><td>Ob Blick nach unten als Scrollen erkannt wird</td></tr>
+    <tr><td>Scrollgeschwindigkeit</td><td>Wie lange ein Blick gehalten werden muss, bevor gescrollt wird (ms)</td></tr>
+    <tr><td>Blink min / max (ms)</td><td>Minimale und maximale Dauer eines Blinzelns, das als Auswahl gilt. Kürzere/längere werden ignoriert.</td></tr>
+    <tr><td>Modus-Haltezeit (ms)</td><td>Wie lange das Auge geschlossen gehalten werden muss, um den Moduswechsel auszulösen</td></tr>
+    <tr><td>Gaze zone</td><td>Empfindlichkeit der Blickrichtungserkennung (kleiner = empfindlicher)</td></tr>
+    <tr><td>EAR threshold</td><td>Schwellenwert für die Augenschluss-Erkennung (Eye Aspect Ratio)</td></tr>
+    <tr><td>Close debounce (ms)</td><td>Verzögerung, bevor ein Augenschluss registriert wird</td></tr>
+  </table>
+</section>
+
+<!-- ── 14 ── -->
+<section id="tastatur">
+  <h2>14. Tastatur-Fallback</h2>
+  <p>
+    Für Tests oder bei vorübergehend eingeschränktem Eye-Tracking kann iSpeak auch per Tastatur bedient werden:
+  </p>
+  <table>
+    <tr><th>Taste</th><th>Funktion</th></tr>
+    <tr><td><span class="kbd">↑</span></td><td>Auswahl nach oben scrollen</td></tr>
+    <tr><td><span class="kbd">↓</span></td><td>Auswahl nach unten scrollen</td></tr>
+    <tr><td><span class="kbd">Enter</span></td><td>Aktuelle Option auswählen (entspricht Blinzeln)</td></tr>
+    <tr><td>Mausrad</td><td>Auswahl scrollen (auf dem Auswahlrad oder in offenen Dialogen)</td></tr>
+    <tr><td>Mausklick auf Slot</td><td>Direktes Anwählen/Scrollen durch Klick auf die Rad-Elemente</td></tr>
+  </table>
+  <p>
+    Der Hinweis <em>„↑↓ Buchstabe wählen · Enter = auswählen · Keyboard-Fallback"</em> am unteren Rand der App erinnert an diese Möglichkeit.
+  </p>
+</section>
+
+<footer>
+  <a href="index.html">App starten</a> ·
+  <a href="about.html">Über iSpeak</a> ·
+  <a href="storage.html">Speicher verwalten</a> ·
+  <a href="impressum.html">Impressum</a> ·
+  <a href="datenschutzerklaerung.html">Datenschutz</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iSpeak – Speicher verwalten</title>
+  <link rel="stylesheet" href="css/storage.css">
+</head>
+<body>
+
+  <header>
+    <h1>iSpeak – Speicher verwalten</h1>
+    <a href="index.html">← Zurück zur App</a>
+  </header>
+
+  <div class="backup-bar">
+    <button class="btn-primary" onclick="exportBackup()">⬇ Backup exportieren</button>
+    <button onclick="document.getElementById('import-file').click()">⬆ Backup importieren</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importBackup(this)">
+    <span id="backup-status"></span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="wörter">Wörter</div>
+    <div class="tab"        data-tab="sätze">Sätze</div>
+  </div>
+
+  <div id="panel-wörter" class="panel active">
+    <div id="words-tree"></div>
+    <div class="add-bar">
+      <input id="new-words-root-cat" type="text" placeholder="Neue Kategorie in / …">
+      <button class="btn-green" onclick="addRootWordsCategory()">+ Kategorie</button>
+      <button onclick="mergeDefaults()" title="Fehlende Wörter aus dem Standard-Wortschatz ergänzen">⟳ Default Wörter</button>
+    </div>
+    <div id="merge-result"></div>
+  </div>
+
+  <div id="panel-sätze" class="panel">
+    <div id="sätze-tree"></div>
+    <div class="add-bar">
+      <input id="new-root-cat" type="text" placeholder="Neue Kategorie in / …">
+      <button class="btn-green" onclick="addRootCategory()">+ Kategorie</button>
+    </div>
+  </div>
+
+<script src="js/words.js"></script>
+<script>
+'use strict';
+
+const SÄTZE_KEY = 'ispeak_sätze';
+const SAVED_KEY = 'ispeak_saved';
+const WORDS_KEY = 'ispeak_words';
+
+// ── Data layer ────────────────────────────────────────────────────────────
+
+function genId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function loadSätzeTree() {
+  try {
+    const raw = localStorage.getItem(SÄTZE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  let phrases = [];
+  try { phrases = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch {}
+  return { id: 'root', name: '/', children: [], phrases };
+}
+
+function saveSätzeTree(tree) {
+  localStorage.setItem(SÄTZE_KEY, JSON.stringify(tree));
+}
+
+function loadWordsTree() {
+  try {
+    const raw = localStorage.getItem(WORDS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { id: 'root', name: '/', children: [], phrases: [] };
+}
+
+function saveWordsTree(tree) {
+  localStorage.setItem(WORDS_KEY, JSON.stringify(tree));
+}
+
+function findNode(node, id) {
+  if (node.id === id) return node;
+  for (const c of node.children) {
+    const f = findNode(c, id);
+    if (f) return f;
+  }
+  return null;
+}
+
+function removeNode(node, id) {
+  const i = node.children.findIndex(c => c.id === id);
+  if (i >= 0) { node.children.splice(i, 1); return true; }
+  return node.children.some(c => removeNode(c, id));
+}
+
+function countAll(node) {
+  let n = node.phrases.length;
+  for (const c of node.children) n += countAll(c);
+  return n;
+}
+
+// ── Generic tree rendering ────────────────────────────────────────────────
+// cfg = { load, save, render, itemLabel }
+
+function buildNode(node, isRoot, cfg) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cat-node';
+
+  if (!isRoot) {
+    const header = document.createElement('div');
+    header.className = 'cat-header';
+
+    const toggle = document.createElement('span');
+    toggle.className = 'cat-toggle';
+    toggle.textContent = '▶';
+    header.appendChild(toggle);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'cat-name';
+    nameSpan.textContent = node.name;
+    header.appendChild(nameSpan);
+
+    const total = countAll(node);
+    if (total > 0) {
+      const cnt = document.createElement('span');
+      cnt.className = 'cat-count';
+      cnt.textContent = total + ' Einträge';
+      header.appendChild(cnt);
+    }
+
+    const phraseArea = document.createElement('div');
+    const catArea    = document.createElement('div');
+
+    const btnPhrase = document.createElement('button');
+    btnPhrase.textContent = '+ ' + cfg.itemLabel;
+    btnPhrase.onclick = e => {
+      e.stopPropagation();
+      showInlineForm(phraseArea, cfg.itemLabel + ' …', text => addPhraseToNode(node.id, text, cfg), cfg);
+    };
+    header.appendChild(btnPhrase);
+
+    const btnCat = document.createElement('button');
+    btnCat.textContent = '+ Kategorie';
+    btnCat.onclick = e => {
+      e.stopPropagation();
+      showInlineForm(catArea, 'Kategoriename …', (name, area) => addSubCat(node.id, name, area, cfg), cfg);
+    };
+    header.appendChild(btnCat);
+
+    const btnDel = document.createElement('button');
+    btnDel.className = 'btn-danger';
+    btnDel.textContent = '✕';
+    btnDel.title = 'Kategorie und alle Inhalte löschen';
+    btnDel.onclick = e => {
+      e.stopPropagation();
+      if (confirm(`Kategorie „${node.name}" und alle Inhalte löschen?`)) {
+        const t = cfg.load(); removeNode(t, node.id); cfg.save(t); cfg.render();
+      }
+    };
+    header.appendChild(btnDel);
+
+    wrap.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'cat-children';
+    body.style.display = 'none';
+
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const collapsed = body.style.display === 'none';
+      body.style.display = collapsed ? '' : 'none';
+      toggle.textContent = collapsed ? '▼' : '▶';
+    });
+    header.style.cursor = 'pointer';
+    header.addEventListener('click', () => toggle.click());
+
+    body.appendChild(phraseArea);
+    body.appendChild(catArea);
+
+    buildPhrases(body, node, cfg);
+    for (const child of node.children) body.appendChild(buildNode(child, false, cfg));
+
+    if (node.phrases.length === 0 && node.children.length === 0) {
+      const emp = document.createElement('div');
+      emp.className = 'empty-note';
+      emp.textContent = '(leer)';
+      body.appendChild(emp);
+    }
+
+    wrap.appendChild(body);
+  } else {
+    if (node.phrases.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'root-phrases';
+      const lbl = document.createElement('div');
+      lbl.className = 'section-label';
+      lbl.textContent = cfg.itemLabel + 'e in /';
+      sec.appendChild(lbl);
+      buildPhrases(sec, node, cfg);
+      wrap.appendChild(sec);
+    }
+
+    const rootBar = document.createElement('div');
+    rootBar.style.cssText = 'display:flex;gap:6px;margin-bottom:0.8rem;';
+
+    const phraseArea2 = document.createElement('div');
+
+    const btnRootPhrase = document.createElement('button');
+    btnRootPhrase.textContent = '+ ' + cfg.itemLabel + ' zu /';
+    btnRootPhrase.onclick = () => showInlineForm(phraseArea2, cfg.itemLabel + ' …', text => addPhraseToNode('root', text, cfg), cfg);
+    rootBar.appendChild(btnRootPhrase);
+
+    wrap.appendChild(rootBar);
+    wrap.appendChild(phraseArea2);
+
+    for (const child of node.children) wrap.appendChild(buildNode(child, false, cfg));
+  }
+
+  return wrap;
+}
+
+function flattenCategories(node, depth, result) {
+  if (!result) result = [];
+  result.push({ id: node.id, name: node.id === 'root' ? '/' : node.name, depth });
+  for (const c of node.children) flattenCategories(c, depth + 1, result);
+  return result;
+}
+
+function openMoveModal(phrase, fromNodeId, cfg) {
+  const existing = document.getElementById('_move-modal');
+  if (existing) existing.remove();
+
+  const tree = cfg.load();
+  const cats = flattenCategories(tree, 0);
+
+  const overlay = document.createElement('div');
+  overlay.id = '_move-modal';
+  overlay.className = 'move-overlay';
+
+  const card = document.createElement('div');
+  card.className = 'move-card';
+
+  const title = document.createElement('div');
+  title.className = 'move-title';
+  title.textContent = `„${phrase.length > 35 ? phrase.slice(0, 35) + '…' : phrase}" verschieben nach:`;
+  card.appendChild(title);
+
+  const list = document.createElement('div');
+  list.className = 'move-list';
+
+  for (const cat of cats) {
+    if (cat.id === fromNodeId) continue;
+    const item = document.createElement('div');
+    item.className = 'move-item';
+    item.style.paddingLeft = (cat.depth * 1.2 + 0.6) + 'rem';
+    item.textContent = cat.name;
+    item.onclick = () => {
+      const t = cfg.load();
+      const from = findNode(t, fromNodeId);
+      const to   = findNode(t, cat.id);
+      if (from && to) {
+        from.phrases = from.phrases.filter(p => p !== phrase);
+        if (!to.phrases.includes(phrase)) to.phrases.unshift(phrase);
+        cfg.save(t);
+      }
+      overlay.remove();
+      cfg.render();
+    };
+    list.appendChild(item);
+  }
+  card.appendChild(list);
+
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Abbrechen';
+  cancel.onclick = () => overlay.remove();
+  card.appendChild(cancel);
+
+  overlay.appendChild(card);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function buildPhrases(container, node, cfg) {
+  for (const phrase of node.phrases) {
+    const row = document.createElement('div');
+    row.className = 'phrase-row';
+
+    const txt = document.createElement('span');
+    txt.className = 'phrase-text';
+    txt.textContent = phrase;
+    row.appendChild(txt);
+
+    const move = document.createElement('button');
+    move.textContent = '→';
+    move.title = 'Verschieben';
+    move.onclick = () => openMoveModal(phrase, node.id, cfg);
+    row.appendChild(move);
+
+    const del = document.createElement('button');
+    del.className = 'btn-danger';
+    del.textContent = '✕';
+    del.onclick = () => {
+      const t = cfg.load();
+      const cat = findNode(t, node.id);
+      if (cat) { cat.phrases = cat.phrases.filter(p => p !== phrase); cfg.save(t); cfg.render(); }
+    };
+    row.appendChild(del);
+    container.appendChild(row);
+  }
+}
+
+function showInlineForm(area, placeholder, onSave, cfg) {
+  area.innerHTML = '';
+  const form = document.createElement('div');
+  form.className = 'inline-form';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = placeholder;
+
+  const btnSave = document.createElement('button');
+  btnSave.className = 'btn-primary';
+  btnSave.textContent = 'Speichern';
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+
+  const save   = () => { const v = input.value.trim(); if (v) { onSave(v, area); } else { cfg.render(); } };
+  const cancel = () => cfg.render();
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); });
+  btnSave.onclick   = save;
+  btnCancel.onclick = cancel;
+
+  form.appendChild(input);
+  form.appendChild(btnSave);
+  form.appendChild(btnCancel);
+  area.appendChild(form);
+  input.focus();
+}
+
+// ── Tree mutations ────────────────────────────────────────────────────────
+
+function addPhraseToNode(catId, text, cfg) {
+  const t = cfg.load();
+  const cat = findNode(t, catId);
+  if (cat && !cat.phrases.includes(text)) { cat.phrases.unshift(text); cfg.save(t); }
+  cfg.render();
+}
+
+function addSubCat(parentId, name, errorArea, cfg) {
+  const t = cfg.load();
+  const parent = findNode(t, parentId);
+  if (parent) {
+    if (parent.children.some(c => c.name === name)) {
+      if (errorArea) showFormError(errorArea, 'Kategorie existiert bereits');
+      return;
+    }
+    parent.children.push({ id: genId(), name, children: [], phrases: [] });
+    cfg.save(t);
+  }
+  cfg.render();
+}
+
+function addRootCategoryFor(inputId, errorId, cfg) {
+  const input = document.getElementById(inputId);
+  const name = input.value.trim();
+  if (!name) return;
+  const t = cfg.load();
+  if (t.children.some(c => c.name === name)) {
+    showBarError(errorId, input, 'Kategorie existiert bereits');
+    return;
+  }
+  t.children.push({ id: genId(), name, children: [], phrases: [] });
+  cfg.save(t);
+  input.value = '';
+  clearBarError(errorId);
+  cfg.render();
+}
+
+function showFormError(area, msg) {
+  let err = area.querySelector('.form-error');
+  if (!err) {
+    err = document.createElement('div');
+    err.className = 'form-error';
+    area.appendChild(err);
+  }
+  err.textContent = msg;
+}
+
+function showBarError(id, refInput, msg) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = id;
+    el.className = 'form-error';
+    refInput.closest('.add-bar').after(el);
+  }
+  el.textContent = msg;
+}
+
+function clearBarError(id) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = '';
+}
+
+// ── Per-tree configs ──────────────────────────────────────────────────────
+
+const sätzeConfig = {
+  load: loadSätzeTree,
+  save: saveSätzeTree,
+  render: () => renderTree(),
+  itemLabel: 'Satz',
+};
+
+const wordsConfig = {
+  load: loadWordsTree,
+  save: saveWordsTree,
+  render: () => renderWordsTree(),
+  itemLabel: 'Wort',
+};
+
+function renderTree() {
+  const tree = loadSätzeTree();
+  const container = document.getElementById('sätze-tree');
+  container.innerHTML = '';
+  container.appendChild(buildNode(tree, true, sätzeConfig));
+}
+
+function renderWordsTree() {
+  const tree = loadWordsTree();
+  const container = document.getElementById('words-tree');
+  container.innerHTML = '';
+  container.appendChild(buildNode(tree, true, wordsConfig));
+}
+
+function addRootCategory() {
+  addRootCategoryFor('new-root-cat', 'new-root-cat-error', sätzeConfig);
+}
+
+function addRootWordsCategory() {
+  addRootCategoryFor('new-words-root-cat', 'new-words-root-cat-error', wordsConfig);
+}
+
+// ── Default word tree merge ───────────────────────────────────────────────
+
+// Map WT_DATA top-level keys to human-readable category names
+const WT_CAT_NAMES = {
+  Häufig:   'Häufig',
+  Verb:     'Verben',
+  Nomen:    'Nomen',
+  Adjektiv: 'Adjektive',
+  Andere:   'Andere',
+};
+
+function mergeDefaults() {
+  const tree = loadWordsTree();
+  let added = 0;
+
+  for (const [topKey, buckets] of Object.entries(WT_DATA)) {
+    const catName = WT_CAT_NAMES[topKey] || topKey;
+
+    // Ensure top-level category exists
+    let topCat = tree.children.find(c => c.name === catName);
+    if (!topCat) {
+      topCat = { id: genId(), name: catName, children: [], phrases: [] };
+      tree.children.push(topCat);
+    }
+
+    for (const [bucketName, words] of Object.entries(buckets)) {
+      // For Häufig: put words directly in the top category (single bucket same name)
+      if (topKey === 'Häufig') {
+        for (const w of words) {
+          if (!topCat.phrases.includes(w)) { topCat.phrases.push(w); added++; }
+        }
+        continue;
+      }
+
+      // All others: bucket becomes a sub-category
+      let subCat = topCat.children.find(c => c.name === bucketName);
+      if (!subCat) {
+        subCat = { id: genId(), name: bucketName, children: [], phrases: [] };
+        topCat.children.push(subCat);
+      }
+
+      for (const w of words) {
+        if (!subCat.phrases.includes(w)) { subCat.phrases.push(w); added++; }
+      }
+    }
+  }
+
+  if (added > 0) { saveWordsTree(tree); renderWordsTree(); }
+
+  const el = document.getElementById('merge-result');
+  el.textContent = added > 0
+    ? `${added} Wörter hinzugefügt.`
+    : 'Alles bereits vorhanden – nichts hinzugefügt.';
+  el.style.color = added > 0 ? '#2a9a4a' : '#888';
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────
+
+const BACKUP_KEYS = [
+  'ispeak',
+  'ispeak_sätze',
+  'ispeak_saved',
+  'ispeak_words',
+  'ispeak_tg_messages',
+  'ispeak_tg_offset',
+];
+
+function exportBackup() {
+  const data = { _version: 1, _exported: new Date().toISOString() };
+  for (const key of BACKUP_KEYS) {
+    const val = localStorage.getItem(key);
+    if (val !== null) data[key] = val;
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const ts   = new Date().toISOString().slice(0, 10);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `ispeak-backup-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showBackupStatus('Backup exportiert.', '#2a9a4a');
+}
+
+function importBackup(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let data;
+    try { data = JSON.parse(e.target.result); }
+    catch { showBackupStatus('Fehler: ungültige JSON-Datei.', '#c00'); return; }
+
+    if (!data._version) {
+      showBackupStatus('Fehler: keine gültige iSpeak-Backup-Datei.', '#c00');
+      return;
+    }
+
+    if (!confirm('Aktuellen Speicher überschreiben und Backup wiederherstellen?')) return;
+
+    for (const key of BACKUP_KEYS) {
+      if (key in data) {
+        localStorage.setItem(key, data[key]);
+      } else {
+        localStorage.removeItem(key);
+      }
+    }
+
+    renderTree();
+    renderWordsTree();
+    showBackupStatus('Backup wiederhergestellt.', '#2a9a4a');
+  };
+  reader.readAsText(file);
+}
+
+function showBackupStatus(msg, color) {
+  const el = document.getElementById('backup-status');
+  el.textContent = msg;
+  el.style.color = color;
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Enter key shortcuts ───────────────────────────────────────────────────
+
+document.getElementById('new-root-cat').addEventListener('keydown', e => { if (e.key === 'Enter') addRootCategory(); });
+document.getElementById('new-words-root-cat').addEventListener('keydown', e => { if (e.key === 'Enter') addRootWordsCategory(); });
+
+// ── Init ──────────────────────────────────────────────────────────────────
+
+renderTree();
+renderWordsTree();
+</script>
+
+</body>
+</html>
