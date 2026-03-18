@@ -151,7 +151,7 @@ const cfg = {
   soundOn:          true,   // play audio feedback
   calibrated:     false, // set true after first successful calibration
   showCamera:     false,  // show live video feed in overlay
-  enabledModes:   { inactive: true, wordtree: true, spelling: true, sätze: true },
+  enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false },
 };
 
 (function loadCfg() {
@@ -898,7 +898,8 @@ function onResults(results) {
 
   drawOverlay(lm);
 
-  // ── Blink / hold detection ────────────────────────────────────────────
+  // ── Blink / hold detection (suppressed during calibration) ──────────
+  if (wizardStep !== 0) { eyeWasClosed = earBelowThresh; return; }
   if (earBelowThresh && !eyeWasClosed) {
     blinkStart    = now;
     longHoldFired = false;
