@@ -185,6 +185,43 @@
     }
     .add-bar input:focus { border-color: #4060e0; }
 
+    /* ── Move modal ──────────────────────────────────────── */
+    .move-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .move-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1.2rem;
+      max-width: 380px; width: 92%;
+      max-height: 70vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      gap: 0.6rem;
+    }
+    .move-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #333;
+    }
+    .move-list {
+      overflow-y: auto;
+      flex: 1;
+      border: 1px solid #e8e8f0;
+      border-radius: 6px;
+    }
+    .move-item {
+      padding: 0.45rem 0.8rem;
+      cursor: pointer;
+      font-size: 0.88rem;
+      border-bottom: 1px solid #f0f0f4;
+    }
+    .move-item:last-child { border-bottom: none; }
+    .move-item:hover { background: #f0f4ff; }
+
     /* ── Root-level phrase area ──────────────────────────── */
     .root-phrases {
       margin-bottom: 0.8rem;
@@ -409,6 +446,67 @@ function buildNode(node, isRoot, cfg) {
   return wrap;
 }
 
+function flattenCategories(node, depth, result) {
+  if (!result) result = [];
+  result.push({ id: node.id, name: node.id === 'root' ? '/' : node.name, depth });
+  for (const c of node.children) flattenCategories(c, depth + 1, result);
+  return result;
+}
+
+function openMoveModal(phrase, fromNodeId, cfg) {
+  const existing = document.getElementById('_move-modal');
+  if (existing) existing.remove();
+
+  const tree = cfg.load();
+  const cats = flattenCategories(tree, 0);
+
+  const overlay = document.createElement('div');
+  overlay.id = '_move-modal';
+  overlay.className = 'move-overlay';
+
+  const card = document.createElement('div');
+  card.className = 'move-card';
+
+  const title = document.createElement('div');
+  title.className = 'move-title';
+  title.textContent = `„${phrase.length > 35 ? phrase.slice(0, 35) + '…' : phrase}" verschieben nach:`;
+  card.appendChild(title);
+
+  const list = document.createElement('div');
+  list.className = 'move-list';
+
+  for (const cat of cats) {
+    if (cat.id === fromNodeId) continue;
+    const item = document.createElement('div');
+    item.className = 'move-item';
+    item.style.paddingLeft = (cat.depth * 1.2 + 0.6) + 'rem';
+    item.textContent = cat.name;
+    item.onclick = () => {
+      const t = cfg.load();
+      const from = findNode(t, fromNodeId);
+      const to   = findNode(t, cat.id);
+      if (from && to) {
+        from.phrases = from.phrases.filter(p => p !== phrase);
+        if (!to.phrases.includes(phrase)) to.phrases.unshift(phrase);
+        cfg.save(t);
+      }
+      overlay.remove();
+      cfg.render();
+    };
+    list.appendChild(item);
+  }
+  card.appendChild(list);
+
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Abbrechen';
+  cancel.onclick = () => overlay.remove();
+  card.appendChild(cancel);
+
+  overlay.appendChild(card);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
 function buildPhrases(container, node, cfg) {
   for (const phrase of node.phrases) {
     const row = document.createElement('div');
@@ -418,6 +516,12 @@ function buildPhrases(container, node, cfg) {
     txt.className = 'phrase-text';
     txt.textContent = phrase;
     row.appendChild(txt);
+
+    const move = document.createElement('button');
+    move.textContent = '→';
+    move.title = 'Verschieben';
+    move.onclick = () => openMoveModal(phrase, node.id, cfg);
+    row.appendChild(move);
 
     const del = document.createElement('button');
     del.className = 'btn-danger';

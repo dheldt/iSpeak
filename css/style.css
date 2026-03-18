@@ -289,8 +289,10 @@ body {
 #mg-main.mg-open    { color: #4af; font-weight: 400; }
 #mg-main.mg-cat     { color: #fa8; }
 #mg-main.mg-new-cat    { color: #6d6; font-weight: 400; }
-#mg-main.mg-rename-cat { color: #adf; font-weight: 400; }
-#mg-main.mg-move-cat   { color: #fd8; font-weight: 400; }
+#mg-main.mg-rename-cat  { color: #adf; font-weight: 400; }
+#mg-main.mg-move-cat    { color: #fd8; font-weight: 400; }
+#mg-main.mg-move-phrase { color: #fd8; font-weight: 400; }
+#mg-main.mg-move-word   { color: #fd8; font-weight: 400; }
 
 #wheel.inactive #mg-main { color: #222 !important; }
 

@@ -17,7 +17,7 @@ const T9_GROUPS = [
 ];
 const T9_MAP      = Object.fromEntries(T9_GROUPS.map(g => [g.key, g.chars]));
 const T9_KEYS     = T9_GROUPS.map(g => g.key);
-const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern', 'Telegram', 'Satz'];
+const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern', 'Telegram'];
 const SP_TOP      = [...T9_KEYS, ...SP_SPECIALS];
 const SP_BACK     = '← Zurück';
 
@@ -266,6 +266,26 @@ function wordsMoveCat(catId, destParentId) {
   if (!dest) return;
   wordsRemoveCat(tree, catId);
   dest.children.push(cat);
+  wordsTreeSave(tree);
+}
+
+function sätzeMovePhraseToCategory(phrase, fromCatId, toCatId) {
+  const tree = sätzeTreeLoad();
+  const from = sätzeFind(tree, fromCatId);
+  const to   = sätzeFind(tree, toCatId);
+  if (!from || !to) return;
+  from.phrases = from.phrases.filter(p => p !== phrase);
+  if (!to.phrases.includes(phrase)) to.phrases.unshift(phrase);
+  sätzeTreeSave(tree);
+}
+
+function wordsMovePhraseToCategory(phrase, fromCatId, toCatId) {
+  const tree = wordsTreeLoad();
+  const from = wordsFind(tree, fromCatId);
+  const to   = wordsFind(tree, toCatId);
+  if (!from || !to) return;
+  from.phrases = from.phrases.filter(p => p !== phrase);
+  if (!to.phrases.includes(phrase)) to.phrases.unshift(phrase);
   wordsTreeSave(tree);
 }
 
@@ -710,7 +730,7 @@ function catModalBuildItems() {
   return items;
 }
 
-function openCatModal(callback, treeLoader, treeFind) {
+function openCatModal(callback, treeLoader, treeFind, title) {
   catModalCallback   = callback;
   catModalTreeLoader = treeLoader || sätzeTreeLoad;
   catModalTreeFind   = treeFind   || sätzeFind;
@@ -718,6 +738,7 @@ function openCatModal(callback, treeLoader, treeFind) {
   catModalItems      = catModalBuildItems();
   catModalIdx        = catModalItems.indexOf(CAT_HIER);
   catModalOpen       = true;
+  document.getElementById('cat-modal-title').textContent = title || 'Kategorie wählen';
   document.getElementById('cat-modal').classList.add('open');
   renderCatModal();
 }
@@ -787,7 +808,9 @@ const MG_DELETE     = '✕ Löschen';
 const MG_OPEN       = '↵ Öffnen';
 const MG_NEW_CAT    = '+ Kategorie erstellen';
 const MG_RENAME_CAT = '✎ Kategorie umbenennen';
-const MG_MOVE_CAT   = '⇄ Kategorie verschieben';
+const MG_MOVE_CAT    = '⇄ Kategorie verschieben';
+const MG_MOVE_WORD   = '⇄ Wort verschieben';
+const MG_MOVE_PHRASE = '⇄ Satz verschieben';
 
 let mgStack = [{ type: 'root' }];
 let mgItems = [];
@@ -808,13 +831,8 @@ function mgRebuildItems() {
       mgItems = [MG_SÄTZE, MG_WÖRTER];
       break;
     case 'sätze': {
-      const tree  = sätzeTreeLoad();
-      const cat   = sätzeFind(tree, frame.catId);
-      const items = [MG_BACK, MG_NEW_CAT, MG_RENAME_CAT, MG_MOVE_CAT];
-      if (cat) {
-        for (const p of cat.phrases) items.push({ _type: 'phrase', text: p, catId: frame.catId });
-      }
-      mgItems = items;
+      const hasBuf = buf.trim().length > 0;
+      mgItems = [MG_BACK, ...(hasBuf ? [MG_NEW_CAT, MG_RENAME_CAT] : []), MG_MOVE_CAT, MG_MOVE_PHRASE];
       break;
     }
     case 'sätze-cat':
@@ -823,14 +841,17 @@ function mgRebuildItems() {
     case 'sätze-phrase':
       mgItems = [MG_BACK, MG_DELETE];
       break;
-    case 'wörter': {
-      const tree  = wordsTreeLoad();
-      const cat   = wordsFind(tree, frame.catId);
-      const items = [MG_BACK, MG_NEW_CAT, MG_RENAME_CAT, MG_MOVE_CAT];
-      if (cat) {
-        for (const p of cat.phrases) items.push({ _type: 'word', text: p, catId: frame.catId });
-      }
+    case 'sätze-pick-phrase': {
+      const tree  = sätzeTreeLoad();
+      const cat   = sätzeFind(tree, frame.catId);
+      const items = [MG_BACK];
+      if (cat) for (const p of cat.phrases) items.push({ _type: 'phrase', text: p, catId: frame.catId });
       mgItems = items;
+      break;
+    }
+    case 'wörter': {
+      const hasBuf = buf.trim().length > 0;
+      mgItems = [MG_BACK, ...(hasBuf ? [MG_NEW_CAT, MG_RENAME_CAT] : []), MG_MOVE_CAT, MG_MOVE_WORD];
       break;
     }
     case 'wörter-cat':
@@ -839,6 +860,14 @@ function mgRebuildItems() {
     case 'wört-word':
       mgItems = [MG_BACK, MG_DELETE];
       break;
+    case 'wörter-pick-phrase': {
+      const tree  = wordsTreeLoad();
+      const cat   = wordsFind(tree, frame.catId);
+      const items = [MG_BACK];
+      if (cat) for (const p of cat.phrases) items.push({ _type: 'word', text: p, catId: frame.catId });
+      mgItems = items;
+      break;
+    }
     default:
       mgItems = [MG_BACK];
   }
@@ -935,13 +964,61 @@ function mgSelectCurrent() {
   if (chosen === MG_MOVE_CAT) {
     if (isWörter) {
       openCatModal(sourceCatId => {
-        openCatModal(destParentId => { wordsMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); }, wordsTreeLoad, wordsFind);
-      }, wordsTreeLoad, wordsFind);
+        const srcName = wordsFind(wordsTreeLoad(), sourceCatId)?.name || sourceCatId;
+        openCatModal(
+          destParentId => { wordsMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); },
+          wordsTreeLoad, wordsFind,
+          `/${srcName}/ verschieben nach:`
+        );
+      }, wordsTreeLoad, wordsFind, 'Zu verschiebende Kategorie:');
     } else {
       openCatModal(sourceCatId => {
-        openCatModal(destParentId => { sätzeMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); });
-      });
+        const srcName = sätzeFind(sätzeTreeLoad(), sourceCatId)?.name || sourceCatId;
+        openCatModal(
+          destParentId => { sätzeMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); },
+          null, null,
+          `/${srcName}/ verschieben nach:`
+        );
+      }, null, null, 'Zu verschiebende Kategorie:');
     }
+    return;
+  }
+
+  if (chosen === MG_MOVE_PHRASE && frame.type === 'sätze') {
+    openCatModal(sourceCatId => {
+      mgStack.push({ type: 'sätze-pick-phrase', catId: sourceCatId });
+      mgRebuildItems();
+    }, null, null, 'Quellkategorie wählen:');
+    return;
+  }
+
+  if (chosen === MG_MOVE_WORD && frame.type === 'wörter') {
+    openCatModal(sourceCatId => {
+      mgStack.push({ type: 'wörter-pick-phrase', catId: sourceCatId });
+      mgRebuildItems();
+    }, wordsTreeLoad, wordsFind, 'Quellkategorie wählen:');
+    return;
+  }
+
+  if (frame.type === 'sätze-pick-phrase' && typeof chosen === 'object' && chosen._type === 'phrase') {
+    const { text, catId } = chosen;
+    openCatModal(toCatId => {
+      sätzeMovePhraseToCategory(text, catId, toCatId);
+      mgStack.pop();
+      mgRebuildItems();
+      flashManage();
+    }, null, null, `„${text.length > 20 ? text.slice(0,20)+'…' : text}" verschieben nach:`);
+    return;
+  }
+
+  if (frame.type === 'wörter-pick-phrase' && typeof chosen === 'object' && chosen._type === 'word') {
+    const { text, catId } = chosen;
+    openCatModal(toCatId => {
+      wordsMovePhraseToCategory(text, catId, toCatId);
+      mgStack.pop();
+      mgRebuildItems();
+      flashManage();
+    }, wordsTreeLoad, wordsFind, `„${text}" verschieben nach:`);
     return;
   }
 
@@ -973,8 +1050,10 @@ function renderManage() {
   mainEl.classList.toggle('mg-delete',     current === MG_DELETE);
   mainEl.classList.toggle('mg-open',       current === MG_OPEN);
   mainEl.classList.toggle('mg-new-cat',    current === MG_NEW_CAT);
-  mainEl.classList.toggle('mg-rename-cat', current === MG_RENAME_CAT);
-  mainEl.classList.toggle('mg-move-cat',   current === MG_MOVE_CAT);
+  mainEl.classList.toggle('mg-rename-cat',  current === MG_RENAME_CAT);
+  mainEl.classList.toggle('mg-move-cat',    current === MG_MOVE_CAT);
+  mainEl.classList.toggle('mg-move-phrase', current === MG_MOVE_PHRASE);
+  mainEl.classList.toggle('mg-move-word',   current === MG_MOVE_WORD);
   mainEl.classList.toggle('mg-cat',        typeof current === 'object' && current._type === 'cat');
 
   document.getElementById('mg-n1').textContent = mgItemLabel(itemAt(+1));
@@ -1022,6 +1101,7 @@ function renderSpelling() {
 
 function renderText() {
   document.getElementById('text-out').textContent = buf;
+  if (mode === 'manage') mgRebuildItems();
 }
 
 function flashLetter() {
