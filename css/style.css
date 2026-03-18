@@ -192,6 +192,31 @@ body {
   width: 100%;
 }
 
+/* ── Autocomplete sub-panel ───────────────────────────────── */
+#wheel-autocomplete {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+}
+
+#ac-main {
+  font-size: 11vmin;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  transition: color 0.2s;
+  cursor: pointer;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+#ac-main.flash         { color: #4af; }
+#ac-main.ac-suggestion { color: #6d6; font-weight: 400; font-size: 8vmin; }
+
 /* ── Word-tree sub-panel ──────────────────────────────────── */
 #wheel-wordtree {
   display: none;
@@ -373,6 +398,7 @@ body {
 
 /* ── Inactive mode overlay ────────────────────────────────── */
 #wheel.inactive #letter-main,
+#wheel.inactive #ac-main,
 #wheel.inactive .adj,
 #wheel.inactive #wt-main,
 #wheel.inactive .wt-adj,
@@ -415,6 +441,7 @@ body {
 #mode-badge.sätze    { background: #2a1a0a; color: #fa8; border: 1px solid #7a4a1a; }
 #mode-badge.telegram { background: #0d1a2a; color: #6af; border: 1px solid #1a4a8a; }
 #mode-badge.manage   { background: #1a2a1a; color: #6d6; border: 1px solid #2a6a2a; }
+#mode-badge.autocomplete { background: #1a2a2a; color: #6dd; border: 1px solid #2a7a7a; }
 
 /* ── Text panel (right column) ────────────────────────────── */
 #text-panel {

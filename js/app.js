@@ -80,6 +80,145 @@ function spExecuteSpecial(c) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Autocomplete mode — T9 spelling with live word suggestions
+// ─────────────────────────────────────────────────────────────────────────
+let acLevel = 0;    // 0 = top (T9 groups + suggestions + specials), 1 = letter group
+let acGroup = null; // active T9 group key when level=1
+let acItems = [];
+let acIdx   = 0;
+
+// Returns the last "word" being typed (part of buf after last space), lowercased.
+function acCurrentPrefix() {
+  const parts = buf.split(' ');
+  return parts[parts.length - 1].toLowerCase();
+}
+
+// Flatten all words from WT_DATA + ispeak_words tree, deduplicated.
+function acCollectAllWords() {
+  const seen  = new Set();
+  const words = [];
+  function add(w) {
+    const t = w.trim();
+    if (t && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); words.push(t); }
+  }
+  // User's custom words tree (highest priority — added first so dedup keeps them)
+  function traverse(node) {
+    for (const p of node.phrases) add(p);
+    for (const c of node.children) traverse(c);
+  }
+  traverse(wordsTreeLoad());
+  // Built-in curated word list (WT_DATA)
+  for (const buckets of Object.values(WT_DATA))
+    for (const list of Object.values(buckets))
+      for (const w of list) add(w);
+  // Large German word list — enz/german-wordlist, CC0 (words_de.js)
+  if (typeof GERMAN_WORDLIST !== 'undefined')
+    for (const w of GERMAN_WORDLIST) add(w);
+  return words;
+}
+
+function acGetSuggestions() {
+  const prefix = acCurrentPrefix();
+  if (prefix.length < 1) return [];
+  const all = acCollectAllWords();
+  return all
+    .filter(w => w.toLowerCase().startsWith(prefix))
+    .sort((a, b) => a.length - b.length || a.localeCompare(b, 'de'))
+    .slice(0, 15);
+}
+
+function acBuildItems() {
+  const sugg = acGetSuggestions().map(s => ({ _type: 'suggestion', text: s }));
+  return [...T9_KEYS, ...sugg, ...SP_SPECIALS];
+}
+
+function acItemLabel(item) {
+  if (typeof item === 'object' && item._type === 'suggestion') return '→ ' + item.text;
+  return item;
+}
+
+function acReset() {
+  acLevel = 0;
+  acGroup = null;
+  acItems = acBuildItems();
+  acIdx   = 0;
+  renderAutocomplete();
+  updateAcBreadcrumb();
+}
+
+function acSelectCurrent() {
+  const chosen = acItems[acIdx];
+  if (acLevel === 1) {
+    if (chosen === SP_BACK) { acReset(); return; }
+    buf += chosen;
+    renderText();
+    flashAutocomplete();
+    acReset();
+    return;
+  }
+  // Level 0
+  if (typeof chosen === 'object' && chosen._type === 'suggestion') {
+    // Replace the current partial word with the suggestion + trailing space
+    const parts = buf.split(' ');
+    parts[parts.length - 1] = chosen.text;
+    buf = parts.join(' ') + ' ';
+    renderText();
+    flashAutocomplete();
+    acReset();
+    return;
+  }
+  if (SP_SPECIALS.includes(chosen)) {
+    spExecuteSpecial(chosen);
+    flashAutocomplete();
+    return;
+  }
+  // T9 group
+  acGroup = chosen;
+  acLevel = 1;
+  acItems = [SP_BACK, ...T9_MAP[acGroup]];
+  acIdx   = 0;
+  renderAutocomplete();
+  updateAcBreadcrumb();
+}
+
+function renderAutocomplete() {
+  const total = acItems.length;
+  acIdx = ((acIdx % total) + total) % total;
+  const itemAt = off => acItems[((acIdx + off) % total + total) % total];
+  const label  = item => acItemLabel(item);
+
+  document.getElementById('ac-p2').textContent = label(itemAt(-2));
+  document.getElementById('ac-p1').textContent = label(itemAt(-1));
+
+  const mainEl = document.getElementById('ac-main');
+  const cur    = itemAt(0);
+  mainEl.textContent = label(cur);
+  const isSugg = typeof cur === 'object' && cur._type === 'suggestion';
+  mainEl.classList.toggle('ac-suggestion', isSugg);
+  mainEl.classList.toggle('ctrl', !isSugg && (acLevel === 0 || cur === SP_BACK));
+
+  document.getElementById('ac-n1').textContent = label(itemAt(+1));
+  document.getElementById('ac-n2').textContent = label(itemAt(+2));
+}
+
+function flashAutocomplete() {
+  const el = document.getElementById('ac-main');
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 150);
+}
+
+function updateAcBreadcrumb() {
+  const el = document.getElementById('wt-breadcrumb');
+  if (!el) return;
+  if (acLevel === 1) {
+    el.textContent = `Ergänzung › ${acGroup}`;
+  } else {
+    const prefix = acCurrentPrefix();
+    el.textContent = prefix ? `Ergänzung: „${prefix}…"` : 'Ergänzung';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Text buffer
 // ─────────────────────────────────────────────────────────────────────────
 let buf = '';
@@ -318,7 +457,7 @@ const cfg = {
   soundOn:          true,   // play audio feedback
   calibrated:     false, // set true after first successful calibration
   showCamera:     false,  // show live video feed in overlay
-  enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false, telegram: false, manage: false },
+  enabledModes:   { inactive: true, wordtree: false, spelling: true, autocomplete: false, sätze: false, telegram: false, manage: false },
   tgToken:         '',
   tgPollMode:      'auto',
   tgPollSeconds:   60,
@@ -338,7 +477,7 @@ function saveCfg() {
 // Mode state machine
 // Cycles on double-blink: inactive → spelling → wordtree → inactive
 // ─────────────────────────────────────────────────────────────────────────
-const MODES = ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram', 'manage'];
+const MODES = ['inactive', 'wordtree', 'spelling', 'autocomplete', 'sätze', 'telegram', 'manage'];
 let mode = 'inactive';
 
 function activeModes() {
@@ -369,13 +508,16 @@ function applyMode() {
 
   wheel.classList.toggle('inactive', mode === 'inactive');
 
-  badge.classList.remove('active', 'inactive', 'wordtree', 'sätze', 'telegram', 'manage');
+  badge.classList.remove('active', 'inactive', 'wordtree', 'autocomplete', 'sätze', 'telegram', 'manage');
   if (mode === 'inactive') {
     badge.textContent = 'INAKTIV';
     badge.classList.add('inactive');
   } else if (mode === 'spelling') {
     badge.textContent = 'BUCHSTABEN';
     badge.classList.add('active');
+  } else if (mode === 'autocomplete') {
+    badge.textContent = 'ERGÄNZUNG';
+    badge.classList.add('autocomplete');
   } else if (mode === 'sätze') {
     badge.textContent = 'SÄTZE';
     badge.classList.add('sätze');
@@ -397,8 +539,11 @@ function applyMode() {
   const tmPanel    = document.getElementById('wheel-telegram');
   const mgPanel    = document.getElementById('wheel-manage');
   const crumb      = document.getElementById('wt-breadcrumb');
+  const acPanel    = document.getElementById('wheel-autocomplete');
+
   if (mode === 'wordtree') {
     spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'flex';
     stPanel.style.display    = 'none';
     tmPanel.style.display    = 'none';
@@ -407,6 +552,7 @@ function applyMode() {
     wtReset();
   } else if (mode === 'sätze') {
     spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'flex';
     tmPanel.style.display    = 'none';
@@ -415,6 +561,7 @@ function applyMode() {
     stReset();
   } else if (mode === 'telegram') {
     spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'none';
     tmPanel.style.display    = 'flex';
@@ -423,14 +570,25 @@ function applyMode() {
     tmReset();
   } else if (mode === 'manage') {
     spellPanel.style.display = 'none';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'none';
     tmPanel.style.display    = 'none';
     mgPanel.style.display    = 'flex';
     crumb.style.display      = 'block';
     mgReset();
+  } else if (mode === 'autocomplete') {
+    spellPanel.style.display = 'none';
+    acPanel.style.display    = 'flex';
+    wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
+    crumb.style.display      = 'block';
+    acReset();
   } else {
     spellPanel.style.display = '';
+    acPanel.style.display    = 'none';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'none';
     tmPanel.style.display    = 'none';
@@ -1103,6 +1261,12 @@ function renderSpelling() {
 function renderText() {
   document.getElementById('text-out').textContent = buf;
   if (mode === 'manage') mgRebuildItems();
+  if (mode === 'autocomplete' && acLevel === 0) {
+    acItems = acBuildItems();
+    acIdx   = 0;
+    renderAutocomplete();
+    updateAcBreadcrumb();
+  }
 }
 
 function flashLetter() {
@@ -1350,6 +1514,9 @@ function handleBlink(dur) {
       sndModeChange();
     } else if (mode === 'spelling') {
       spSelectCurrent();
+      showGaze('mid'); sndSelect();
+    } else if (mode === 'autocomplete') {
+      acSelectCurrent();
       showGaze('mid'); sndSelect();
     } else if (mode === 'wordtree') {
       wtSelectCurrent();
@@ -1604,6 +1771,9 @@ function onResults(results) {
       if (mode === 'spelling') {
         spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length;
         renderSpelling();
+      } else if (mode === 'autocomplete') {
+        acIdx = ((acIdx - 1) % acItems.length + acItems.length) % acItems.length;
+        renderAutocomplete();
       } else if (mode === 'sätze') {
         stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length;
         renderSätze();
@@ -1623,6 +1793,9 @@ function onResults(results) {
       if (mode === 'spelling') {
         spIdx = (spIdx + 1) % spItems.length;
         renderSpelling();
+      } else if (mode === 'autocomplete') {
+        acIdx = (acIdx + 1) % acItems.length;
+        renderAutocomplete();
       } else if (mode === 'sätze') {
         stIdx = (stIdx + 1) % stItems.length;
         renderSätze();
@@ -1804,21 +1977,24 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     cycleMode(); e.preventDefault();
   } else if (e.key === 'ArrowUp' && mode !== 'inactive') {
-    if (mode === 'spelling')      { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
+    if (mode === 'spelling')           { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
+    else if (mode === 'autocomplete')  { acIdx = ((acIdx - 1) % acItems.length + acItems.length) % acItems.length; renderAutocomplete(); }
     else if (mode === 'sätze')    { stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length; renderSätze(); }
     else if (mode === 'telegram') { tmIdx = ((tmIdx - 1) % tmItems.length + tmItems.length) % tmItems.length; renderTelegram(); }
     else if (mode === 'manage')   { mgIdx = ((mgIdx - 1) % mgItems.length + mgItems.length) % mgItems.length; renderManage(); }
     else { wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length; renderWordTree(); }
     showGaze('up'); e.preventDefault();
   } else if (e.key === 'ArrowDown' && mode !== 'inactive') {
-    if (mode === 'spelling')      { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
+    if (mode === 'spelling')           { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
+    else if (mode === 'autocomplete')  { acIdx = (acIdx + 1) % acItems.length; renderAutocomplete(); }
     else if (mode === 'sätze')    { stIdx = (stIdx + 1) % stItems.length; renderSätze(); }
     else if (mode === 'telegram') { tmIdx = (tmIdx + 1) % tmItems.length; renderTelegram(); }
     else if (mode === 'manage')   { mgIdx = (mgIdx + 1) % mgItems.length; renderManage(); }
     else { wtIdx = (wtIdx + 1) % wtItems.length; renderWordTree(); }
     showGaze('dn'); e.preventDefault();
   } else if ((e.key === 'Enter' || e.key === ' ') && mode !== 'inactive') {
-    if (mode === 'spelling')      spSelectCurrent();
+    if (mode === 'spelling')          spSelectCurrent();
+    else if (mode === 'autocomplete') acSelectCurrent();
     else if (mode === 'sätze')    stSelectCurrent();
     else if (mode === 'telegram') tmSelectCurrent();
     else if (mode === 'manage')   mgSelectCurrent();
@@ -1844,6 +2020,11 @@ function bindWheelClicks() {
     () => mode === 'spelling',
     spSelectCurrent,
     d => { spIdx = ((spIdx+d)%spItems.length+spItems.length)%spItems.length; renderSpelling(); });
+
+  bindWheel(['ac-p2','ac-p1','ac-main','ac-n1','ac-n2'],
+    () => mode === 'autocomplete',
+    acSelectCurrent,
+    d => { acIdx = ((acIdx+d)%acItems.length+acItems.length)%acItems.length; renderAutocomplete(); });
 
   bindWheel(['wt-p2','wt-p1','wt-main','wt-n1','wt-n2'],
     () => mode === 'wordtree',
@@ -1879,7 +2060,8 @@ function bindWheelClicks() {
   document.getElementById('wheel').addEventListener('wheel', e => {
     e.preventDefault();
     const d = e.deltaY > 0 ? 1 : -1;
-    if (mode === 'spelling')      { spIdx = ((spIdx+d)%spItems.length+spItems.length)%spItems.length; renderSpelling(); }
+    if (mode === 'spelling')           { spIdx = ((spIdx+d)%spItems.length+spItems.length)%spItems.length; renderSpelling(); }
+    else if (mode === 'autocomplete')  { acIdx = ((acIdx+d)%acItems.length+acItems.length)%acItems.length; renderAutocomplete(); }
     else if (mode === 'wordtree') { wtIdx = ((wtIdx+d)%wtItems.length+wtItems.length)%wtItems.length; renderWordTree(); }
     else if (mode === 'sätze')    { stIdx = ((stIdx+d)%stItems.length+stItems.length)%stItems.length; renderSätze(); }
     else if (mode === 'telegram') { tmIdx = ((tmIdx+d)%tmItems.length+tmItems.length)%tmItems.length; renderTelegram(); }
@@ -1953,7 +2135,7 @@ function wordsInitDefaults() {
     saveCfg();
   });
 
-  ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram', 'manage'].forEach(m => {
+  ['inactive', 'wordtree', 'spelling', 'autocomplete', 'sätze', 'telegram', 'manage'].forEach(m => {
     const cb = document.getElementById(`s-m-${m}`);
     cb.checked = cfg.enabledModes[m] !== false;
     cb.addEventListener('change', () => {

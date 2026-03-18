@@ -63,7 +63,51 @@
   <li>Eye-Tracking: <a href="https://google.github.io/mediapipe/" target="_blank" rel="noopener">Google MediaPipe FaceMesh</a></li>
   <li>Text-to-Speech: Web Speech API des Browsers</li>
   <li>Messaging: Telegram Bot API (optional, erfordert eigenen Bot-Token)</li>
+  <li>Wort-Ergänzung: <a href="https://github.com/enz/german-wordlist" target="_blank" rel="noopener">german-wordlist</a> – ca. 686 000 flektierte deutsche Wortformen (CC0, gemeinfrei)</li>
 </ul>
+
+<h2>Danksagung</h2>
+<p>iSpeak wäre ohne die folgenden freien Ressourcen und Dienste nicht möglich. Herzlicher Dank gilt:</p>
+
+<h3>Google MediaPipe</h3>
+<p>
+  Das Eye-Tracking basiert auf
+  <a href="https://github.com/google/mediapipe" target="_blank" rel="noopener"><strong>MediaPipe FaceMesh</strong></a>
+  und <strong>MediaPipe Camera Utils</strong> von Google LLC.
+  MediaPipe erkennt in Echtzeit 468 Gesichts-Landmarken inklusive Iris-Position und ermöglicht so die
+  berührungsfreie Steuerung allein durch Augenbewegungen.
+  Die Bibliotheken stehen unter der
+  <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache-2.0</a>-Lizenz.
+  Vielen Dank an das MediaPipe-Team und alle Beitragenden für dieses leistungsfähige, frei verfügbare Framework.
+</p>
+
+<h3>german-wordlist</h3>
+<p>
+  Die Wortvorschläge im Ergänzungs-Modus basieren auf der Wortliste
+  <a href="https://github.com/enz/german-wordlist" target="_blank" rel="noopener"><strong>german-wordlist</strong></a>
+  von <strong>Philipp Enz</strong> und den zahlreichen Beitragenden dieses Projekts.
+  Die Liste enthält ca. 686 000 flektierte deutsche Wortformen und steht unter der
+  <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0-1.0</a>-Lizenz (gemeinfrei).
+  Vielen Dank für diese wertvolle, frei zugängliche Ressource.
+</p>
+
+<h3>Telegram</h3>
+<p>
+  Der Telegram-Modus nutzt die öffentlich zugängliche
+  <a href="https://core.telegram.org/bots/api" target="_blank" rel="noopener"><strong>Telegram Bot API</strong></a>.
+  Dank Telegram können Nutzerinnen und Nutzer Nachrichten direkt aus der App heraus senden und empfangen –
+  ohne eigene Server-Infrastruktur. Die Telegram Bot API ist kostenlos und frei nutzbar.
+</p>
+
+<h3>Web Speech API</h3>
+<p>
+  Die Text-to-Speech-Funktion verwendet die im Browser eingebaute
+  <strong>Web Speech API</strong> (Sprachsynthese).
+  Diese standardisierte Browser-API ermöglicht es, zusammengestellten Text mit natürlicher Stimme vorlesen zu lassen,
+  ohne externe Bibliotheken oder Cloud-Dienste. Dank gilt den Browser-Herstellern –
+  insbesondere Apple (Safari / iOS) und Google (Chrome) – für die Implementierung dieser API,
+  die iSpeak auch auf mobilen Geräten nutzbar macht.
+</p>
 
 <h2>Lizenz &amp; Quellcode</h2>
 <p>

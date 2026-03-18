@@ -47,6 +47,15 @@
         <div class="adj" id="l-n2"></div>
       </div>
 
+      <!-- Autocomplete sub-panel -->
+      <div id="wheel-autocomplete">
+        <div class="adj" id="ac-p2"></div>
+        <div class="adj near" id="ac-p1"></div>
+        <div id="ac-main">abc</div>
+        <div class="adj near" id="ac-n1"></div>
+        <div class="adj" id="ac-n2"></div>
+      </div>
+
       <!-- Word-tree sub-panel -->
       <div id="wheel-wordtree">
         <div class="wt-adj" id="wt-p2"></div>
@@ -171,6 +180,10 @@
       <div class="s-row">
         <label>Modus: Buchstaben</label>
         <input type="checkbox" id="s-m-spelling" checked>
+      </div>
+      <div class="s-row">
+        <label>Modus: Ergänzung</label>
+        <input type="checkbox" id="s-m-autocomplete">
       </div>
       <div class="s-row">
         <label>Modus: Sätze</label>
@@ -300,6 +313,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="js/words.js"></script>
+  <script src="js/words_de.js"></script>
   <script src="js/app.js"></script>
   <script src="js/telegram.js"></script>
 
