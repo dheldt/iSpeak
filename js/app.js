@@ -17,7 +17,7 @@ const T9_GROUPS = [
 ];
 const T9_MAP      = Object.fromEntries(T9_GROUPS.map(g => [g.key, g.chars]));
 const T9_KEYS     = T9_GROUPS.map(g => g.key);
-const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern', 'Telegram'];
+const SP_SPECIALS = ['␣', 'DEL', 'CLR', 'Sprechen', 'Speichern', 'Telegram', 'Satz'];
 const SP_TOP      = [...T9_KEYS, ...SP_SPECIALS];
 const SP_BACK     = '← Zurück';
 
@@ -58,9 +58,16 @@ function spExecuteSpecial(c) {
   if (c === 'Sprechen') {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
   } else if (c === 'Speichern') {
-    if (buf.trim()) { savePhrase(buf); }
+    if (buf.trim()) openCatModal(catId => { wordsAddWord(catId, buf); buf = ''; renderText(); flashLetter(); }, wordsTreeLoad, wordsFind);
+    return;
   } else if (c === 'Telegram') {
     if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); });
+    return;
+  } else if (c === 'Satz') {
+    if (buf.trim()) openCatModal(catId => { sätzeAddPhrase(catId, buf); flashLetter(); });
+    return;
+  } else if (c === 'Kateg.') {
+    if (buf.trim()) openCatModal(catId => { sätzeAddCategory(buf, catId); flashLetter(); });
     return;
   } else if (c === 'DEL') {
     buf = buf.slice(0, -1); renderText();
@@ -126,6 +133,143 @@ function savedForBucket(saved, bucketKey) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Sätze category tree  (persisted separately from the flat word list)
+// ─────────────────────────────────────────────────────────────────────────
+// Node shape: { id: string, name: string, children: Node[], phrases: string[] }
+// Root has id='root', name='/'.
+// On first load the old flat ispeak_saved list is migrated into root.phrases.
+// ─────────────────────────────────────────────────────────────────────────
+const SÄTZE_KEY = 'ispeak_sätze';
+
+function sätzeGenId() { return Math.random().toString(36).slice(2, 10); }
+
+function sätzeTreeLoad() {
+  try {
+    const raw = localStorage.getItem(SÄTZE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  // First-time migration from old flat saved-phrases list
+  let phrases = [];
+  try { phrases = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch {}
+  return { id: 'root', name: '/', children: [], phrases };
+}
+
+function sätzeTreeSave(tree) {
+  try { localStorage.setItem(SÄTZE_KEY, JSON.stringify(tree)); } catch {}
+}
+
+function sätzeFind(node, id) {
+  if (node.id === id) return node;
+  for (const c of node.children) { const f = sätzeFind(c, id); if (f) return f; }
+  return null;
+}
+
+function sätzeRemoveCat(node, id) {
+  const i = node.children.findIndex(c => c.id === id);
+  if (i >= 0) { node.children.splice(i, 1); return true; }
+  return node.children.some(c => sätzeRemoveCat(c, id));
+}
+
+function sätzeAddPhrase(catId, phrase) {
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  if (!cat || cat.phrases.includes(phrase)) return;
+  cat.phrases.unshift(phrase);
+  sätzeTreeSave(tree);
+}
+
+function sätzeAddCategory(name, parentId) {
+  const tree   = sätzeTreeLoad();
+  const parent = sätzeFind(tree, parentId);
+  if (!parent) return;
+  if (parent.children.some(c => c.name === name)) {
+    tts('Kategorie existiert bereits.');
+    return;
+  }
+  parent.children.push({ id: sätzeGenId(), name, children: [], phrases: [] });
+  sätzeTreeSave(tree);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Words tree  (persisted to localStorage as ispeak_words)
+// ─────────────────────────────────────────────────────────────────────────
+const WORDS_KEY = 'ispeak_words';
+
+function wordsTreeLoad() {
+  try { const raw = localStorage.getItem(WORDS_KEY); if (raw) return JSON.parse(raw); } catch {}
+  return { id: 'root', name: '/', children: [], phrases: [] };
+}
+
+function wordsTreeSave(tree) {
+  try { localStorage.setItem(WORDS_KEY, JSON.stringify(tree)); } catch {}
+}
+
+function wordsFind(node, id) {
+  if (node.id === id) return node;
+  for (const c of node.children) { const f = wordsFind(c, id); if (f) return f; }
+  return null;
+}
+
+function wordsAddWord(catId, word) {
+  const tree = wordsTreeLoad();
+  const cat  = wordsFind(tree, catId);
+  if (!cat || cat.phrases.includes(word)) return;
+  cat.phrases.unshift(word);
+  wordsTreeSave(tree);
+}
+
+function wordsRemoveCat(node, id) {
+  const i = node.children.findIndex(c => c.id === id);
+  if (i >= 0) { node.children.splice(i, 1); return true; }
+  return node.children.some(c => wordsRemoveCat(c, id));
+}
+
+function wordsAddCategory(name, parentId) {
+  const tree   = wordsTreeLoad();
+  const parent = wordsFind(tree, parentId);
+  if (!parent) return;
+  if (parent.children.some(c => c.name === name)) { tts('Kategorie existiert bereits.'); return; }
+  parent.children.push({ id: sätzeGenId(), name, children: [], phrases: [] });
+  wordsTreeSave(tree);
+}
+
+function sätzeRenameCategory(catId, newName) {
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  if (cat && catId !== 'root') { cat.name = newName; sätzeTreeSave(tree); }
+}
+
+function wordsRenameCategory(catId, newName) {
+  const tree = wordsTreeLoad();
+  const cat  = wordsFind(tree, catId);
+  if (cat && catId !== 'root') { cat.name = newName; wordsTreeSave(tree); }
+}
+
+function sätzeMoveCat(catId, destParentId) {
+  if (catId === destParentId || catId === 'root') return;
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  if (!cat || sätzeFind(cat, destParentId)) return; // dest is inside source
+  const dest = sätzeFind(tree, destParentId);
+  if (!dest) return;
+  sätzeRemoveCat(tree, catId);
+  dest.children.push(cat);
+  sätzeTreeSave(tree);
+}
+
+function wordsMoveCat(catId, destParentId) {
+  if (catId === destParentId || catId === 'root') return;
+  const tree = wordsTreeLoad();
+  const cat  = wordsFind(tree, catId);
+  if (!cat || wordsFind(cat, destParentId)) return; // dest is inside source
+  const dest = wordsFind(tree, destParentId);
+  if (!dest) return;
+  wordsRemoveCat(tree, catId);
+  dest.children.push(cat);
+  wordsTreeSave(tree);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // TTS
 // ─────────────────────────────────────────────────────────────────────────
 function tts(text) {
@@ -154,7 +298,7 @@ const cfg = {
   soundOn:          true,   // play audio feedback
   calibrated:     false, // set true after first successful calibration
   showCamera:     false,  // show live video feed in overlay
-  enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false, telegram: false },
+  enabledModes:   { inactive: true, wordtree: false, spelling: true, sätze: false, telegram: false, manage: false },
   tgToken:         '',
   tgPollMode:      'auto',
   tgPollSeconds:   60,
@@ -174,7 +318,7 @@ function saveCfg() {
 // Mode state machine
 // Cycles on double-blink: inactive → spelling → wordtree → inactive
 // ─────────────────────────────────────────────────────────────────────────
-const MODES = ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram'];
+const MODES = ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram', 'manage'];
 let mode = 'inactive';
 
 function activeModes() {
@@ -205,7 +349,7 @@ function applyMode() {
 
   wheel.classList.toggle('inactive', mode === 'inactive');
 
-  badge.classList.remove('active', 'inactive', 'wordtree', 'sätze', 'telegram');
+  badge.classList.remove('active', 'inactive', 'wordtree', 'sätze', 'telegram', 'manage');
   if (mode === 'inactive') {
     badge.textContent = 'INAKTIV';
     badge.classList.add('inactive');
@@ -218,6 +362,9 @@ function applyMode() {
   } else if (mode === 'telegram') {
     badge.textContent = 'TELEGRAM';
     badge.classList.add('telegram');
+  } else if (mode === 'manage') {
+    badge.textContent = 'VERWALTEN';
+    badge.classList.add('manage');
   } else {
     badge.textContent = 'WORTBAUM';
     badge.classList.add('wordtree');
@@ -228,12 +375,14 @@ function applyMode() {
   const wtPanel    = document.getElementById('wheel-wordtree');
   const stPanel    = document.getElementById('wheel-sätze');
   const tmPanel    = document.getElementById('wheel-telegram');
+  const mgPanel    = document.getElementById('wheel-manage');
   const crumb      = document.getElementById('wt-breadcrumb');
   if (mode === 'wordtree') {
     spellPanel.style.display = 'none';
     wtPanel.style.display    = 'flex';
     stPanel.style.display    = 'none';
     tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
     crumb.style.display      = 'block';
     wtReset();
   } else if (mode === 'sätze') {
@@ -241,6 +390,7 @@ function applyMode() {
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'flex';
     tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
     crumb.style.display      = 'block';
     stReset();
   } else if (mode === 'telegram') {
@@ -248,13 +398,23 @@ function applyMode() {
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'none';
     tmPanel.style.display    = 'flex';
+    mgPanel.style.display    = 'none';
     crumb.style.display      = 'block';
     tmReset();
+  } else if (mode === 'manage') {
+    spellPanel.style.display = 'none';
+    wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'none';
+    tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'flex';
+    crumb.style.display      = 'block';
+    mgReset();
   } else {
     spellPanel.style.display = '';
     wtPanel.style.display    = 'none';
     stPanel.style.display    = 'none';
     tmPanel.style.display    = 'none';
+    mgPanel.style.display    = 'none';
     crumb.style.display      = 'none';
     if (mode === 'spelling') spReset();
   }
@@ -273,12 +433,13 @@ let wtIdx      = 0;      // current scroll position
 
 const WT_SPEAK    = '↵ Sprechen';
 const WT_TELEGRAM = '↵ Telegram';
+const WT_KATEG    = '↵ Speichern';
 
 function wtReset() {
   wtLevel    = 0;
   wtCategory = null;
   wtBucket   = null;
-  wtItems    = [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM];
+  wtItems    = [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM, WT_KATEG];
   wtIdx      = 0;
   renderWordTree();
   renderBreadcrumb();
@@ -297,6 +458,10 @@ function wtSelectCurrent() {
   }
   if (chosen === WT_TELEGRAM) {
     if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); flashWordTree(); wtReset(); });
+    return;
+  }
+  if (chosen === WT_KATEG) {
+    if (buf.trim()) openCatModal(catId => { wordsAddWord(catId, buf); buf = ''; renderText(); flashWordTree(); wtReset(); }, wordsTreeLoad, wordsFind);
     return;
   }
   if (wtLevel === 0) {
@@ -345,7 +510,7 @@ function wtSelectCurrent() {
 }
 
 function wtGoBack() {
-  const rootItems = () => [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM];
+  const rootItems = () => [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM, WT_KATEG];
   if (wtLevel === 2) {
     // For Gespeichert with ≤10 entries we skipped level 1 — go straight to root.
     if (wtCategory === WT_SAVED_CAT && loadSaved().length <= 10) {
@@ -408,42 +573,53 @@ function flashWordTree() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Sätze mode — browse and speak saved phrases
+// Sätze mode — navigate category tree, assemble phrases, speak or send
 // ─────────────────────────────────────────────────────────────────────────
 const ST_BACK     = '← Zurück';
-const ST_EMPTY    = '(Keine Sätze)';
 const ST_SPEAK    = '↵ Sprechen';
 const ST_TELEGRAM = '↵ Telegram';
+const ST_SAVE     = '↵ Speichern';
 
-let stLevel  = 0;
-let stBucket = null;
-let stItems  = [];
-let stIdx    = 0;
+let stStack = ['root'];   // navigation path: array of category IDs
+let stItems = [];         // current wheel items (strings or category objects)
+let stIdx   = 0;
 
-function stRootItems() {
-  const saved = loadSaved();
-  if (saved.length === 0) {
-    return [ST_EMPTY, ST_SPEAK, ST_TELEGRAM];
-  } else if (saved.length <= 10) {
-    return [...saved, ST_SPEAK, ST_TELEGRAM];
-  } else {
-    return [...savedBucketKeys(saved), ST_SPEAK, ST_TELEGRAM];
+function stItemLabel(item) {
+  return typeof item === 'string' ? item : '▶ ' + item.name;
+}
+
+function stBuildItems(catId) {
+  const tree = sätzeTreeLoad();
+  const cat  = sätzeFind(tree, catId);
+  const items = [];
+  if (stStack.length > 1) items.push(ST_BACK);
+  if (cat) {
+    items.push(...cat.children);
+    items.push(...cat.phrases);
   }
+  items.push(ST_SPEAK, ST_TELEGRAM, ST_SAVE);
+  return items;
 }
 
 function stReset() {
-  stLevel  = 0;
-  stBucket = null;
-  stItems  = stRootItems();
-  stIdx    = 0;
+  stStack = ['root'];
+  stItems = stBuildItems('root');
+  stIdx   = 0;
   renderSätze();
   updateStBreadcrumb();
 }
 
 function stSelectCurrent() {
   const chosen = stItems[stIdx];
-  if (chosen === ST_EMPTY) return;
-  if (chosen === ST_BACK)  { stReset(); return; }
+  if (!chosen) return;
+  if (chosen === ST_BACK) {
+    stStack.pop();
+    stItems = stBuildItems(stStack[stStack.length - 1]);
+    stIdx   = 0;
+    renderSätze();
+    updateStBreadcrumb();
+    return;
+  }
   if (chosen === ST_SPEAK) {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
     flashSätze();
@@ -453,51 +629,376 @@ function stSelectCurrent() {
     if (buf.trim()) tgInitiateSend(buf, () => { addHistory(buf, 'spoken'); buf = ''; renderText(); flashSätze(); });
     return;
   }
-  const saved = loadSaved();
-  if (stLevel === 0 && saved.length > 10) {
-    // chosen is a T9 bucket key — drill in
-    stBucket = chosen;
-    stLevel  = 1;
-    stItems  = [ST_BACK, ...savedForBucket(saved, chosen)];
-    stIdx    = 0;
+  if (chosen === ST_SAVE) {
+    if (buf.trim()) openCatModal(catId => { sätzeAddPhrase(catId, buf); flashSätze(); });
+    return;
+  }
+  if (typeof chosen === 'object') {
+    // Sub-category — drill in
+    stStack.push(chosen.id);
+    stItems = stBuildItems(chosen.id);
+    stIdx   = 0;
     renderSätze();
     updateStBreadcrumb();
-  } else {
-    // chosen is a phrase — append to buffer, return to root
-    buf += (buf.length > 0 && buf.slice(-1) !== ' ') ? ' ' + chosen : chosen;
-    renderText();
-    flashSätze();
-    stReset();
+    return;
   }
+  // Phrase — append to buffer, return to root
+  buf += (buf.length > 0 && buf.slice(-1) !== ' ') ? ' ' + chosen : chosen;
+  renderText();
+  flashSätze();
+  stReset();
 }
 
 function renderSätze() {
   const total = stItems.length;
-  if (total === 0) return;
+  if (!total) return;
   stIdx = ((stIdx % total) + total) % total;
   const itemAt = off => stItems[((stIdx + off) % total + total) % total];
 
-  document.getElementById('st-p2').textContent = itemAt(-2);
-  document.getElementById('st-p1').textContent = itemAt(-1);
+  document.getElementById('st-p2').textContent = stItemLabel(itemAt(-2));
+  document.getElementById('st-p1').textContent = stItemLabel(itemAt(-1));
 
   const mainEl  = document.getElementById('st-main');
   const current = itemAt(0);
-  mainEl.textContent = current;
-  mainEl.classList.toggle('st-back',     current === ST_BACK);
-  mainEl.classList.toggle('st-empty',    current === ST_EMPTY);
-  mainEl.classList.toggle('st-action',   current === ST_SPEAK || current === ST_TELEGRAM);
+  mainEl.textContent = stItemLabel(current);
+  mainEl.classList.toggle('st-back',   current === ST_BACK);
+  mainEl.classList.toggle('st-action', current === ST_SPEAK || current === ST_TELEGRAM || current === ST_SAVE);
+  mainEl.classList.toggle('st-cat',    typeof current === 'object');
 
-  document.getElementById('st-n1').textContent = itemAt(+1);
-  document.getElementById('st-n2').textContent = itemAt(+2);
+  document.getElementById('st-n1').textContent = stItemLabel(itemAt(+1));
+  document.getElementById('st-n2').textContent = stItemLabel(itemAt(+2));
 }
 
 function updateStBreadcrumb() {
   const el = document.getElementById('wt-breadcrumb');
-  el.textContent = stLevel === 0 ? 'Sätze' : `Sätze › ${stBucket}`;
+  if (!el) return;
+  if (stStack.length <= 1) { el.textContent = 'Sätze'; return; }
+  const tree = sätzeTreeLoad();
+  el.textContent = stStack.map(id => sätzeFind(tree, id)?.name || id).join(' › ');
 }
 
 function flashSätze() {
   const el = document.getElementById('st-main');
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 150);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Category selection modal
+// Opens when user saves a phrase or creates a category — lets them pick
+// where in the sätze tree to place it.
+// ─────────────────────────────────────────────────────────────────────────
+const CAT_HIER = '✓ Hier';
+const CAT_BACK = '← Zurück';
+
+let catModalOpen       = false;
+let catModalCallback   = null;
+let catModalStack      = ['root'];
+let catModalItems      = [];
+let catModalIdx        = 0;
+let catModalTreeLoader = sätzeTreeLoad;
+let catModalTreeFind   = sätzeFind;
+
+function catModalBuildItems() {
+  const catId = catModalStack[catModalStack.length - 1];
+  const tree  = catModalTreeLoader();
+  const cat   = catModalTreeFind(tree, catId);
+  const items = [];
+  if (catModalStack.length > 1) items.push(CAT_BACK);
+  items.push(CAT_HIER);
+  if (cat) items.push(...cat.children);
+  return items;
+}
+
+function openCatModal(callback, treeLoader, treeFind) {
+  catModalCallback   = callback;
+  catModalTreeLoader = treeLoader || sätzeTreeLoad;
+  catModalTreeFind   = treeFind   || sätzeFind;
+  catModalStack      = ['root'];
+  catModalItems      = catModalBuildItems();
+  catModalIdx        = catModalItems.indexOf(CAT_HIER);
+  catModalOpen       = true;
+  document.getElementById('cat-modal').classList.add('open');
+  renderCatModal();
+}
+
+function catModalClose() {
+  catModalOpen = false;
+  document.getElementById('cat-modal').classList.remove('open');
+}
+
+function catModalScroll(dir) {
+  catModalIdx = ((catModalIdx + dir) % catModalItems.length + catModalItems.length) % catModalItems.length;
+  renderCatModal();
+}
+
+function catModalSelect() {
+  const chosen = catModalItems[catModalIdx];
+  if (!chosen) return;
+  if (chosen === CAT_BACK) {
+    catModalStack.pop();
+    catModalItems = catModalBuildItems();
+    catModalIdx   = catModalItems.indexOf(CAT_HIER);
+    renderCatModal();
+    return;
+  }
+  if (chosen === CAT_HIER) {
+    const catId = catModalStack[catModalStack.length - 1];
+    catModalClose();
+    if (catModalCallback) catModalCallback(catId);
+    return;
+  }
+  // Sub-category — drill in
+  catModalStack.push(chosen.id);
+  catModalItems = catModalBuildItems();
+  catModalIdx   = catModalItems.indexOf(CAT_HIER);
+  renderCatModal();
+}
+
+function catModalCurrentPath() {
+  const tree  = catModalTreeLoader();
+  const parts = catModalStack.slice(1).map(id => catModalTreeFind(tree, id)?.name || id);
+  return '/' + (parts.length ? parts.join('/') + '/' : '');
+}
+
+function renderCatModal() {
+  const total  = catModalItems.length;
+  const itemAt = off => catModalItems[((catModalIdx + off) % total + total) % total];
+  const label  = item => {
+    if (item === CAT_HIER) return catModalCurrentPath();
+    return typeof item === 'string' ? item : '▶ ' + item.name;
+  };
+
+  document.getElementById('cat-modal-prev').textContent = label(itemAt(-1));
+  const mainEl = document.getElementById('cat-modal-main');
+  mainEl.textContent = label(itemAt(0));
+  mainEl.classList.toggle('cat-hier', itemAt(0) === CAT_HIER);
+  mainEl.classList.toggle('cat-back', itemAt(0) === CAT_BACK);
+  document.getElementById('cat-modal-next').textContent = label(itemAt(+1));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Manage mode — delete saved phrases, categories, and word-list entries
+// ─────────────────────────────────────────────────────────────────────────
+const MG_SÄTZE      = 'Sätze';
+const MG_WÖRTER     = 'Wörter';
+const MG_BACK       = '← Zurück';
+const MG_DELETE     = '✕ Löschen';
+const MG_OPEN       = '↵ Öffnen';
+const MG_NEW_CAT    = '+ Kategorie erstellen';
+const MG_RENAME_CAT = '✎ Kategorie umbenennen';
+const MG_MOVE_CAT   = '⇄ Kategorie verschieben';
+
+let mgStack = [{ type: 'root' }];
+let mgItems = [];
+let mgIdx   = 0;
+
+function mgItemLabel(item) {
+  if (typeof item === 'string') return item;
+  if (item._type === 'cat')    return '▶ ' + item.name;
+  if (item._type === 'phrase') return item.text;
+  if (item._type === 'word')   return item.text;
+  return '';
+}
+
+function mgRebuildItems() {
+  const frame = mgStack[mgStack.length - 1];
+  switch (frame.type) {
+    case 'root':
+      mgItems = [MG_SÄTZE, MG_WÖRTER];
+      break;
+    case 'sätze': {
+      const tree  = sätzeTreeLoad();
+      const cat   = sätzeFind(tree, frame.catId);
+      const items = [MG_BACK, MG_NEW_CAT, MG_RENAME_CAT, MG_MOVE_CAT];
+      if (cat) {
+        for (const p of cat.phrases) items.push({ _type: 'phrase', text: p, catId: frame.catId });
+      }
+      mgItems = items;
+      break;
+    }
+    case 'sätze-cat':
+      mgItems = [MG_BACK, MG_OPEN, MG_DELETE];
+      break;
+    case 'sätze-phrase':
+      mgItems = [MG_BACK, MG_DELETE];
+      break;
+    case 'wörter': {
+      const tree  = wordsTreeLoad();
+      const cat   = wordsFind(tree, frame.catId);
+      const items = [MG_BACK, MG_NEW_CAT, MG_RENAME_CAT, MG_MOVE_CAT];
+      if (cat) {
+        for (const p of cat.phrases) items.push({ _type: 'word', text: p, catId: frame.catId });
+      }
+      mgItems = items;
+      break;
+    }
+    case 'wörter-cat':
+      mgItems = [MG_BACK, MG_OPEN, MG_DELETE];
+      break;
+    case 'wört-word':
+      mgItems = [MG_BACK, MG_DELETE];
+      break;
+    default:
+      mgItems = [MG_BACK];
+  }
+  mgIdx = 0;
+  renderManage();
+  updateMgBreadcrumb();
+}
+
+function mgReset() {
+  mgStack = [{ type: 'root' }];
+  mgRebuildItems();
+}
+
+function mgSelectCurrent() {
+  const chosen = mgItems[mgIdx];
+  if (!chosen) return;
+  const frame = mgStack[mgStack.length - 1];
+
+  if (chosen === MG_BACK) {
+    if (mgStack.length > 1) mgStack.pop();
+    mgRebuildItems();
+    return;
+  }
+
+  if (chosen === MG_DELETE) {
+    if (frame.type === 'sätze-phrase') {
+      const tree = sätzeTreeLoad();
+      const cat = sätzeFind(tree, frame.catId);
+      if (cat) { cat.phrases = cat.phrases.filter(p => p !== frame.text); sätzeTreeSave(tree); }
+    } else if (frame.type === 'sätze-cat') {
+      const tree = sätzeTreeLoad();
+      sätzeRemoveCat(tree, frame.catId);
+      sätzeTreeSave(tree);
+    } else if (frame.type === 'wörter-cat') {
+      const tree = wordsTreeLoad();
+      wordsRemoveCat(tree, frame.catId);
+      wordsTreeSave(tree);
+    } else if (frame.type === 'wört-word') {
+      const tree = wordsTreeLoad();
+      const cat  = wordsFind(tree, frame.catId);
+      if (cat) { cat.phrases = cat.phrases.filter(p => p !== frame.text); wordsTreeSave(tree); }
+    }
+    mgStack.pop();
+    mgRebuildItems();
+    flashManage();
+    return;
+  }
+
+  if (chosen === MG_OPEN && frame.type === 'sätze-cat') {
+    mgStack.pop();
+    mgStack.push({ type: 'sätze', catId: frame.catId });
+    mgRebuildItems();
+    return;
+  }
+
+  if (chosen === MG_OPEN && frame.type === 'wörter-cat') {
+    mgStack.pop();
+    mgStack.push({ type: 'wörter', catId: frame.catId });
+    mgRebuildItems();
+    return;
+  }
+
+  if (frame.type === 'root') {
+    if (chosen === MG_SÄTZE)  mgStack.push({ type: 'sätze',  catId: 'root' });
+    if (chosen === MG_WÖRTER) mgStack.push({ type: 'wörter', catId: 'root' });
+    mgRebuildItems();
+    return;
+  }
+
+  const isWörter = frame.type === 'wörter';
+
+  if (chosen === MG_NEW_CAT) {
+    if (!buf.trim()) { tts('Bitte zuerst den Kategorienamen im Textfeld eingeben.'); return; }
+    const name = buf.trim();
+    if (isWörter) {
+      openCatModal(parentId => { wordsAddCategory(name, parentId); mgRebuildItems(); flashManage(); }, wordsTreeLoad, wordsFind);
+    } else {
+      openCatModal(parentId => { sätzeAddCategory(name, parentId); mgRebuildItems(); flashManage(); });
+    }
+    return;
+  }
+
+  if (chosen === MG_RENAME_CAT) {
+    if (!buf.trim()) { tts('Bitte zuerst den neuen Namen im Textfeld eingeben.'); return; }
+    const newName = buf.trim();
+    if (isWörter) {
+      openCatModal(catId => { wordsRenameCategory(catId, newName); mgRebuildItems(); flashManage(); }, wordsTreeLoad, wordsFind);
+    } else {
+      openCatModal(catId => { sätzeRenameCategory(catId, newName); mgRebuildItems(); flashManage(); });
+    }
+    return;
+  }
+
+  if (chosen === MG_MOVE_CAT) {
+    if (isWörter) {
+      openCatModal(sourceCatId => {
+        openCatModal(destParentId => { wordsMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); }, wordsTreeLoad, wordsFind);
+      }, wordsTreeLoad, wordsFind);
+    } else {
+      openCatModal(sourceCatId => {
+        openCatModal(destParentId => { sätzeMoveCat(sourceCatId, destParentId); mgRebuildItems(); flashManage(); });
+      });
+    }
+    return;
+  }
+
+  if (frame.type === 'sätze' && typeof chosen === 'object' && chosen._type === 'phrase') {
+    mgStack.push({ type: 'sätze-phrase', text: chosen.text, catId: chosen.catId });
+    mgRebuildItems();
+    return;
+  }
+
+  if (frame.type === 'wörter' && typeof chosen === 'object' && chosen._type === 'word') {
+    mgStack.push({ type: 'wört-word', text: chosen.text, catId: chosen.catId });
+    mgRebuildItems();
+  }
+}
+
+function renderManage() {
+  const total = mgItems.length;
+  if (!total) return;
+  mgIdx = ((mgIdx % total) + total) % total;
+  const itemAt = off => mgItems[((mgIdx + off) % total + total) % total];
+
+  document.getElementById('mg-p2').textContent = mgItemLabel(itemAt(-2));
+  document.getElementById('mg-p1').textContent = mgItemLabel(itemAt(-1));
+
+  const mainEl  = document.getElementById('mg-main');
+  const current = itemAt(0);
+  mainEl.textContent = mgItemLabel(current);
+  mainEl.classList.toggle('mg-back',       current === MG_BACK);
+  mainEl.classList.toggle('mg-delete',     current === MG_DELETE);
+  mainEl.classList.toggle('mg-open',       current === MG_OPEN);
+  mainEl.classList.toggle('mg-new-cat',    current === MG_NEW_CAT);
+  mainEl.classList.toggle('mg-rename-cat', current === MG_RENAME_CAT);
+  mainEl.classList.toggle('mg-move-cat',   current === MG_MOVE_CAT);
+  mainEl.classList.toggle('mg-cat',        typeof current === 'object' && current._type === 'cat');
+
+  document.getElementById('mg-n1').textContent = mgItemLabel(itemAt(+1));
+  document.getElementById('mg-n2').textContent = mgItemLabel(itemAt(+2));
+}
+
+function updateMgBreadcrumb() {
+  const el = document.getElementById('wt-breadcrumb');
+  if (!el) return;
+  const tree   = sätzeTreeLoad();
+  const labels = ['Verwalten'];
+  for (const f of mgStack.slice(1)) {
+    if (f.type === 'sätze')        labels.push(f.catId === 'root' ? 'Sätze' : (sätzeFind(tree, f.catId)?.name || ''));
+    else if (f.type === 'sätze-cat')    labels.push(f.name);
+    else if (f.type === 'sätze-phrase') labels.push(f.text.length > 18 ? f.text.slice(0, 18) + '…' : f.text);
+    else if (f.type === 'wörter')       labels.push('Wörter');
+    else if (f.type === 'wort-item')    labels.push(f.text.length > 18 ? f.text.slice(0, 18) + '…' : f.text);
+  }
+  el.textContent = labels.join(' › ');
+}
+
+function flashManage() {
+  const el = document.getElementById('mg-main');
+  if (!el) return;
   el.classList.add('flash');
   setTimeout(() => el.classList.remove('flash'), 150);
 }
@@ -756,7 +1257,10 @@ function closeModeModal() {
 function handleBlink(dur) {
   // Long holds are handled mid-frame (see onResults); ignore them here.
   if (dur >= cfg.blinkMin && dur <= cfg.blinkMax) {
-    if (typeof tgModalOpen !== 'undefined' && tgModalOpen) {
+    if (catModalOpen) {
+      catModalSelect();
+      showGaze('mid'); sndSelect();
+    } else if (typeof tgModalOpen !== 'undefined' && tgModalOpen) {
       tgModalSelect();
       showGaze('mid'); sndSelect();
     } else if (modeModalOpen) {
@@ -774,6 +1278,9 @@ function handleBlink(dur) {
       showGaze('mid'); sndSelect();
     } else if (mode === 'telegram') {
       tmSelectCurrent();
+      showGaze('mid'); sndSelect();
+    } else if (mode === 'manage') {
+      mgSelectCurrent();
       showGaze('mid'); sndSelect();
     }
   }
@@ -993,7 +1500,13 @@ function onResults(results) {
   // Grace period of 1500 ms after modal opens: ignore gaze so that the
   // eye naturally opening after the hold doesn't immediately close the modal.
   const MODAL_GAZE_GRACE = 1500;
-  if (typeof tgModalOpen !== 'undefined' && tgModalOpen && eyeOpenForGaze && now - lastGazeTime > cfg.gazeDebounce) {
+  if (catModalOpen && eyeOpenForGaze && now - lastGazeTime > cfg.gazeDebounce) {
+    if (gazeVal < cfg.gazeUpThresh) {
+      catModalScroll(-1); showGaze('up'); sndUp(); lastGazeTime = now;
+    } else if (gazeVal > cfg.gazeDownThresh) {
+      catModalScroll(+1); showGaze('dn'); sndDown(); lastGazeTime = now;
+    }
+  } else if (typeof tgModalOpen !== 'undefined' && tgModalOpen && eyeOpenForGaze && now - lastGazeTime > cfg.gazeDebounce) {
     if (gazeVal < cfg.gazeUpThresh) {
       tgModalScroll(-1); showGaze('up'); sndUp(); lastGazeTime = now;
     } else if (gazeVal > cfg.gazeDownThresh) {
@@ -1016,6 +1529,9 @@ function onResults(results) {
       } else if (mode === 'telegram') {
         tmIdx = ((tmIdx - 1) % tmItems.length + tmItems.length) % tmItems.length;
         renderTelegram();
+      } else if (mode === 'manage') {
+        mgIdx = ((mgIdx - 1) % mgItems.length + mgItems.length) % mgItems.length;
+        renderManage();
       } else {
         wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length;
         renderWordTree();
@@ -1032,6 +1548,9 @@ function onResults(results) {
       } else if (mode === 'telegram') {
         tmIdx = (tmIdx + 1) % tmItems.length;
         renderTelegram();
+      } else if (mode === 'manage') {
+        mgIdx = (mgIdx + 1) % mgItems.length;
+        renderManage();
       } else {
         wtIdx = (wtIdx + 1) % wtItems.length;
         renderWordTree();
@@ -1187,6 +1706,13 @@ function bindSettings() {
 // Keyboard fallback
 // ─────────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
+  if (catModalOpen) {
+    if (e.key === 'ArrowUp')   { catModalScroll(-1); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { catModalScroll(+1); e.preventDefault(); }
+    if (e.key === 'Enter' || e.key === ' ') { catModalSelect(); e.preventDefault(); }
+    if (e.key === 'Escape') { catModalClose(); e.preventDefault(); }
+    return;
+  }
   if (typeof tgModalOpen !== 'undefined' && tgModalOpen) {
     if (e.key === 'ArrowUp')   { tgModalScroll(-1); e.preventDefault(); }
     if (e.key === 'ArrowDown') { tgModalScroll(+1); e.preventDefault(); }
@@ -1197,25 +1723,105 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     cycleMode(); e.preventDefault();
   } else if (e.key === 'ArrowUp' && mode !== 'inactive') {
-    if (mode === 'spelling') { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
+    if (mode === 'spelling')      { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
     else if (mode === 'sätze')    { stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length; renderSätze(); }
     else if (mode === 'telegram') { tmIdx = ((tmIdx - 1) % tmItems.length + tmItems.length) % tmItems.length; renderTelegram(); }
+    else if (mode === 'manage')   { mgIdx = ((mgIdx - 1) % mgItems.length + mgItems.length) % mgItems.length; renderManage(); }
     else { wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length; renderWordTree(); }
     showGaze('up'); e.preventDefault();
   } else if (e.key === 'ArrowDown' && mode !== 'inactive') {
     if (mode === 'spelling')      { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
     else if (mode === 'sätze')    { stIdx = (stIdx + 1) % stItems.length; renderSätze(); }
     else if (mode === 'telegram') { tmIdx = (tmIdx + 1) % tmItems.length; renderTelegram(); }
+    else if (mode === 'manage')   { mgIdx = (mgIdx + 1) % mgItems.length; renderManage(); }
     else { wtIdx = (wtIdx + 1) % wtItems.length; renderWordTree(); }
     showGaze('dn'); e.preventDefault();
   } else if ((e.key === 'Enter' || e.key === ' ') && mode !== 'inactive') {
     if (mode === 'spelling')      spSelectCurrent();
     else if (mode === 'sätze')    stSelectCurrent();
     else if (mode === 'telegram') tmSelectCurrent();
+    else if (mode === 'manage')   mgSelectCurrent();
     else                          wtSelectCurrent();
     showGaze('mid'); e.preventDefault();
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Click-to-select (testing / accessibility fallback)
+// Clicking a centre slot selects it; clicking an adjacent slot scrolls.
+// ─────────────────────────────────────────────────────────────────────────
+function bindWheelClicks() {
+  const bindWheel = (ids, modeGuard, selectFn, scrollFn) => {
+    const [p2, p1, main, n1, n2] = ids.map(id => document.getElementById(id));
+    main.addEventListener('click', () => { if (modeGuard()) { selectFn(); sndSelect(); } });
+    [[p2,-2],[p1,-1],[n1,+1],[n2,+2]].forEach(([el, d]) =>
+      el.addEventListener('click', () => { if (modeGuard()) { scrollFn(d); d < 0 ? sndUp() : sndDown(); } })
+    );
+  };
+
+  bindWheel(['l-p2','l-p1','letter-main','l-n1','l-n2'],
+    () => mode === 'spelling',
+    spSelectCurrent,
+    d => { spIdx = ((spIdx+d)%spItems.length+spItems.length)%spItems.length; renderSpelling(); });
+
+  bindWheel(['wt-p2','wt-p1','wt-main','wt-n1','wt-n2'],
+    () => mode === 'wordtree',
+    wtSelectCurrent,
+    d => { wtIdx = ((wtIdx+d)%wtItems.length+wtItems.length)%wtItems.length; renderWordTree(); });
+
+  bindWheel(['st-p2','st-p1','st-main','st-n1','st-n2'],
+    () => mode === 'sätze',
+    stSelectCurrent,
+    d => { stIdx = ((stIdx+d)%stItems.length+stItems.length)%stItems.length; renderSätze(); });
+
+  bindWheel(['tm-p2','tm-p1','tm-main','tm-n1','tm-n2'],
+    () => mode === 'telegram',
+    () => tmSelectCurrent(),
+    d => { tmIdx = ((tmIdx+d)%tmItems.length+tmItems.length)%tmItems.length; renderTelegram(); });
+
+  bindWheel(['mg-p2','mg-p1','mg-main','mg-n1','mg-n2'],
+    () => mode === 'manage',
+    mgSelectCurrent,
+    d => { mgIdx = ((mgIdx+d)%mgItems.length+mgItems.length)%mgItems.length; renderManage(); });
+
+  // Category selection modal
+  document.getElementById('cat-modal-main').addEventListener('click', () => { if (catModalOpen) { catModalSelect(); sndSelect(); } });
+  document.getElementById('cat-modal-prev').addEventListener('click', () => { if (catModalOpen) { catModalScroll(-1); sndUp(); } });
+  document.getElementById('cat-modal-next').addEventListener('click', () => { if (catModalOpen) { catModalScroll(+1); sndDown(); } });
+
+  // Telegram contact modal
+  document.getElementById('tgcw-main').addEventListener('click', () => { if (typeof tgModalOpen !== 'undefined' && tgModalOpen) { tgModalSelect(); sndSelect(); } });
+  document.getElementById('tgcw-prev').addEventListener('click', () => { if (typeof tgModalOpen !== 'undefined' && tgModalOpen) { tgModalScroll(-1); sndUp(); } });
+  document.getElementById('tgcw-next').addEventListener('click', () => { if (typeof tgModalOpen !== 'undefined' && tgModalOpen) { tgModalScroll(+1); sndDown(); } });
+
+  // Mouse-wheel scroll on main wheel
+  document.getElementById('wheel').addEventListener('wheel', e => {
+    e.preventDefault();
+    const d = e.deltaY > 0 ? 1 : -1;
+    if (mode === 'spelling')      { spIdx = ((spIdx+d)%spItems.length+spItems.length)%spItems.length; renderSpelling(); }
+    else if (mode === 'wordtree') { wtIdx = ((wtIdx+d)%wtItems.length+wtItems.length)%wtItems.length; renderWordTree(); }
+    else if (mode === 'sätze')    { stIdx = ((stIdx+d)%stItems.length+stItems.length)%stItems.length; renderSätze(); }
+    else if (mode === 'telegram') { tmIdx = ((tmIdx+d)%tmItems.length+tmItems.length)%tmItems.length; renderTelegram(); }
+    else if (mode === 'manage')   { mgIdx = ((mgIdx+d)%mgItems.length+mgItems.length)%mgItems.length; renderManage(); }
+    d < 0 ? sndUp() : sndDown();
+  }, { passive: false });
+
+  // Mouse-wheel scroll on category modal
+  document.getElementById('cat-modal-card').addEventListener('wheel', e => {
+    if (!catModalOpen) return;
+    e.preventDefault();
+    const d = e.deltaY > 0 ? 1 : -1;
+    catModalScroll(d); d < 0 ? sndUp() : sndDown();
+  }, { passive: false });
+
+  // Mouse-wheel scroll on telegram contact modal
+  document.getElementById('tg-contact-card').addEventListener('wheel', e => {
+    if (typeof tgModalOpen === 'undefined' || !tgModalOpen) return;
+    e.preventDefault();
+    const d = e.deltaY > 0 ? 1 : -1;
+    tgModalScroll(d); d < 0 ? sndUp() : sndDown();
+  }, { passive: false });
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Init
@@ -1244,7 +1850,7 @@ document.addEventListener('keydown', e => {
     saveCfg();
   });
 
-  ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram'].forEach(m => {
+  ['inactive', 'wordtree', 'spelling', 'sätze', 'telegram', 'manage'].forEach(m => {
     const cb = document.getElementById(`s-m-${m}`);
     cb.checked = cfg.enabledModes[m] !== false;
     cb.addEventListener('change', () => {
@@ -1294,6 +1900,8 @@ document.addEventListener('keydown', e => {
   // Start button: unlocks Web Audio + Speech Synthesis synchronously (iOS
   // requires both to be triggered directly inside a user-gesture handler),
   // then starts the camera.
+  bindWheelClicks();
+
   document.getElementById('start-btn').addEventListener('click', () => {
     // Unlock all Audio elements — must happen synchronously inside this gesture.
     unlockAudio();

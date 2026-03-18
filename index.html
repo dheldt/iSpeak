@@ -65,6 +65,15 @@
         <div class="wt-adj" id="tm-n2"></div>
       </div>
 
+      <!-- Manage mode sub-panel -->
+      <div id="wheel-manage">
+        <div class="wt-adj" id="mg-p2"></div>
+        <div class="wt-adj near" id="mg-p1"></div>
+        <div id="mg-main"></div>
+        <div class="wt-adj near" id="mg-n1"></div>
+        <div class="wt-adj" id="mg-n2"></div>
+      </div>
+
       <!-- Sätze sub-panel -->
       <div id="wheel-sätze">
         <div class="wt-adj" id="st-p2"></div>
@@ -172,6 +181,10 @@
         <input type="checkbox" id="s-m-telegram">
       </div>
       <div class="s-row">
+        <label>Modus: Verwalten</label>
+        <input type="checkbox" id="s-m-manage">
+      </div>
+      <div class="s-row">
         <label>Auge</label>
         <select id="s-eye">
           <option value="right">Rechts</option>
@@ -250,6 +263,17 @@
       <div id="tgcw-main" class="tgcw-main"></div>
       <div id="tgcw-next" class="tgcw-adj"></div>
       <div id="tg-contact-hint">↑↓ Blick wechseln · Blinzeln = senden</div>
+    </div>
+  </div>
+
+  <!-- Category selection modal (save satz / create category) -->
+  <div id="cat-modal">
+    <div id="cat-modal-card">
+      <div id="cat-modal-title">Kategorie wählen</div>
+      <div id="cat-modal-prev" class="cat-adj"></div>
+      <div id="cat-modal-main" class="cat-main"></div>
+      <div id="cat-modal-next" class="cat-adj"></div>
+      <div id="cat-modal-hint">↑↓ Blick wechseln · Blinzeln = auswählen</div>
     </div>
   </div>
 

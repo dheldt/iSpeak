@@ -222,6 +222,7 @@ body {
   word-break: break-word;
   overflow-wrap: break-word;
   transition: color 0.2s;
+  cursor: pointer;
 }
 #tm-main.flash   { color: #4af; }
 /* Conversation view: smaller font to fit message text */
@@ -251,11 +252,47 @@ body {
   word-break: break-word;
   overflow-wrap: break-word;
   transition: color 0.2s;
+  cursor: pointer;
 }
 #st-main.flash    { color: #4af; }
 #st-main.st-back  { font-weight: 400; }
 #st-main.st-empty { color: #333; font-weight: 400; }
 #st-main.st-action { color: #4af; font-weight: 400; }
+#st-main.st-cat    { color: #fa8; }
+
+/* ── Manage sub-panel ────────────────────────────────────── */
+#wheel-manage {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+}
+
+#mg-main {
+  font-size: 6vmin;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  transition: color 0.2s;
+  padding: 0 0.5em;
+  cursor: pointer;
+}
+#mg-main.flash     { color: #4af; }
+#mg-main.mg-back    { font-weight: 400; color: #555; }
+#mg-main.mg-delete  { color: #f64; font-weight: 700; }
+#mg-main.mg-open    { color: #4af; font-weight: 400; }
+#mg-main.mg-cat     { color: #fa8; }
+#mg-main.mg-new-cat    { color: #6d6; font-weight: 400; }
+#mg-main.mg-rename-cat { color: #adf; font-weight: 400; }
+#mg-main.mg-move-cat   { color: #fd8; font-weight: 400; }
+
+#wheel.inactive #mg-main { color: #222 !important; }
 
 .wt-adj {
   font-size: 5vmin;
@@ -266,6 +303,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 .wt-adj.near {
   font-size: 8vmin;
@@ -283,6 +321,7 @@ body {
   word-break: break-word;
   overflow-wrap: break-word;
   transition: color 0.2s;
+  cursor: pointer;
 }
 #wt-main.flash    { color: #4af; }
 #wt-main.wt-back  { font-weight: 400; }
@@ -310,6 +349,7 @@ body {
   line-height: 1;
   text-align: center;
   width: 100%;
+  cursor: pointer;
 }
 .adj.near {
   font-size: 11vmin;
@@ -325,6 +365,7 @@ body {
   text-align: center;
   width: 100%;
   transition: color 0.2s;
+  cursor: pointer;
 }
 #letter-main.flash { color: #4af; }
 
@@ -334,7 +375,8 @@ body {
 #wheel.inactive #wt-main,
 #wheel.inactive .wt-adj,
 #wheel.inactive #st-main,
-#wheel.inactive #st-main.st-action { color: #222 !important; }
+#wheel.inactive #st-main.st-action,
+#wheel.inactive #mg-main { color: #222 !important; }
 
 #mode-hint {
   position: absolute;
@@ -370,6 +412,7 @@ body {
 #mode-badge.wordtree { background: #1a1a3a; color: #88f; border: 1px solid #2a2a8a; }
 #mode-badge.sätze    { background: #2a1a0a; color: #fa8; border: 1px solid #7a4a1a; }
 #mode-badge.telegram { background: #0d1a2a; color: #6af; border: 1px solid #1a4a8a; }
+#mode-badge.manage   { background: #1a2a1a; color: #6d6; border: 1px solid #2a6a2a; }
 
 /* ── Text panel (right column) ────────────────────────────── */
 #text-panel {
@@ -687,10 +730,57 @@ body {
   letter-spacing: 0.1em;
   margin-bottom: 0.6rem;
 }
-.tgcw-adj  { font-size: 5vmin;  color: #333; line-height: 1; }
-.tgcw-main { font-size: 8vmin;  color: #fff; font-weight: 700; line-height: 1; }
+.tgcw-adj  { font-size: 5vmin;  color: #333; line-height: 1; cursor: pointer; }
+.tgcw-main { font-size: 8vmin;  color: #fff; font-weight: 700; line-height: 1; cursor: pointer; }
 .tgcw-main.tg-cancel { color: #555; font-weight: 400; }
 #tg-contact-hint {
+  font-size: 1.4vmin;
+  color: #444;
+  margin-top: 0.8rem;
+}
+
+/* ── Category selection modal ────────────────────────────── */
+#cat-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.80);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+#cat-modal.open { display: flex; }
+#cat-modal-card {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 1.6rem 2rem;
+  min-width: 36vw;
+  max-width: 60vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+#cat-modal-title {
+  font-size: 1.5vmin;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.2rem;
+}
+#cat-modal-path {
+  font-size: 1.4vmin;
+  color: #fa8;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+  word-break: break-all;
+}
+.cat-adj  { font-size: 4.5vmin; color: #333; line-height: 1; cursor: pointer; }
+.cat-main { font-size: 7.5vmin; color: #fff; font-weight: 700; line-height: 1.1; text-align: center; cursor: pointer; }
+.cat-main.cat-hier { color: #4d4; }
+.cat-main.cat-back { color: #555; font-weight: 400; }
+#cat-modal-hint {
   font-size: 1.4vmin;
   color: #444;
   margin-top: 0.8rem;

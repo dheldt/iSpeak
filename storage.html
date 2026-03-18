@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iSpeak – Speicher verwalten</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f4f4f6;
+      color: #1a1a1a;
+      padding: 1.5rem;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    header h1 { font-size: 1.4rem; }
+    header a   { font-size: 0.85rem; color: #555; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+
+    /* ── Tabs ────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #d8d8e0;
+      margin-bottom: 1.5rem;
+    }
+    .tab {
+      padding: 0.55rem 1.4rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      font-size: 0.95rem;
+      font-weight: 500;
+      background: #e8e8ee;
+      color: #666;
+      margin-right: 3px;
+      user-select: none;
+    }
+    .tab:hover { background: #dddde8; }
+    .tab.active {
+      background: #fff;
+      border-color: #d8d8e0;
+      color: #1a1a1a;
+      font-weight: 600;
+      margin-bottom: -2px;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    button {
+      padding: 0.25rem 0.65rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      background: #fff;
+      color: #333;
+      white-space: nowrap;
+    }
+    button:hover { background: #f0f0f0; }
+    button.btn-primary { background: #4060e0; color: #fff; border-color: #4060e0; }
+    button.btn-primary:hover { background: #3050c0; }
+    button.btn-green   { background: #2a9a4a; color: #fff; border-color: #2a9a4a; }
+    button.btn-green:hover { background: #228040; }
+    button.btn-danger  { color: #c00; border-color: #f0c0c0; }
+    button.btn-danger:hover { background: #fff0f0; }
+
+    /* ── Category tree ───────────────────────────────────── */
+    .cat-node { margin-bottom: 4px; }
+
+    .cat-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: #fff;
+      border: 1px solid #dde;
+      border-radius: 7px;
+    }
+    .cat-header:hover { background: #f8f8ff; }
+
+    .cat-toggle {
+      cursor: pointer;
+      font-size: 0.72rem;
+      width: 1.1rem;
+      flex-shrink: 0;
+      color: #888;
+      user-select: none;
+    }
+    .cat-name {
+      flex: 1;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .cat-count {
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+    .cat-children {
+      margin-left: 1.6rem;
+      margin-top: 4px;
+      border-left: 2px solid #e8e8f0;
+      padding-left: 0.9rem;
+    }
+
+    .phrase-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      background: #fafafa;
+      border: 1px solid #ebebf0;
+      border-radius: 5px;
+      margin-bottom: 3px;
+    }
+    .phrase-text {
+      flex: 1;
+      font-size: 0.9rem;
+      color: #333;
+    }
+
+    #merge-result {
+      font-size: 0.85rem;
+      padding: 4px 2px;
+      min-height: 1.4em;
+    }
+
+    .form-error {
+      font-size: 0.82rem;
+      color: #c00;
+      padding: 3px 4px;
+    }
+
+    .empty-note {
+      font-size: 0.85rem;
+      color: #bbb;
+      font-style: italic;
+      padding: 4px 0;
+    }
+
+    /* ── Inline add forms ────────────────────────────────── */
+    .inline-form {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 5px 4px;
+    }
+    .inline-form input {
+      flex: 1;
+      padding: 4px 8px;
+      border: 1px solid #b8b8cc;
+      border-radius: 5px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .inline-form input:focus { border-color: #4060e0; }
+
+    /* ── Root add bar ────────────────────────────────────── */
+    .add-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 1rem;
+      padding: 10px;
+      background: #fff;
+      border: 1px dashed #ccd;
+      border-radius: 7px;
+    }
+    .add-bar input {
+      flex: 1;
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .add-bar input:focus { border-color: #4060e0; }
+
+    /* ── Root-level phrase area ──────────────────────────── */
+    .root-phrases {
+      margin-bottom: 0.8rem;
+    }
+    .section-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #999;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>iSpeak – Speicher verwalten</h1>
+    <a href="index.html">← Zurück zur App</a>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="wörter">Wörter</div>
+    <div class="tab"        data-tab="sätze">Sätze</div>
+  </div>
+
+  <div id="panel-wörter" class="panel active">
+    <div id="words-tree"></div>
+    <div class="add-bar">
+      <input id="new-words-root-cat" type="text" placeholder="Neue Kategorie in / …">
+      <button class="btn-green" onclick="addRootWordsCategory()">+ Kategorie</button>
+      <button onclick="mergeDefaults()" title="Fehlende Wörter aus dem Standard-Wortschatz ergänzen">⟳ Default Wörter</button>
+    </div>
+    <div id="merge-result"></div>
+  </div>
+
+  <div id="panel-sätze" class="panel">
+    <div id="sätze-tree"></div>
+    <div class="add-bar">
+      <input id="new-root-cat" type="text" placeholder="Neue Kategorie in / …">
+      <button class="btn-green" onclick="addRootCategory()">+ Kategorie</button>
+    </div>
+  </div>
+
+<script src="js/words.js"></script>
+<script>
+'use strict';
+
+const SÄTZE_KEY = 'ispeak_sätze';
+const SAVED_KEY = 'ispeak_saved';
+const WORDS_KEY = 'ispeak_words';
+
+// ── Data layer ────────────────────────────────────────────────────────────
+
+function genId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function loadSätzeTree() {
+  try {
+    const raw = localStorage.getItem(SÄTZE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  let phrases = [];
+  try { phrases = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch {}
+  return { id: 'root', name: '/', children: [], phrases };
+}
+
+function saveSätzeTree(tree) {
+  localStorage.setItem(SÄTZE_KEY, JSON.stringify(tree));
+}
+
+function loadWordsTree() {
+  try {
+    const raw = localStorage.getItem(WORDS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { id: 'root', name: '/', children: [], phrases: [] };
+}
+
+function saveWordsTree(tree) {
+  localStorage.setItem(WORDS_KEY, JSON.stringify(tree));
+}
+
+function findNode(node, id) {
+  if (node.id === id) return node;
+  for (const c of node.children) {
+    const f = findNode(c, id);
+    if (f) return f;
+  }
+  return null;
+}
+
+function removeNode(node, id) {
+  const i = node.children.findIndex(c => c.id === id);
+  if (i >= 0) { node.children.splice(i, 1); return true; }
+  return node.children.some(c => removeNode(c, id));
+}
+
+function countAll(node) {
+  let n = node.phrases.length;
+  for (const c of node.children) n += countAll(c);
+  return n;
+}
+
+// ── Generic tree rendering ────────────────────────────────────────────────
+// cfg = { load, save, render, itemLabel }
+
+function buildNode(node, isRoot, cfg) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cat-node';
+
+  if (!isRoot) {
+    const header = document.createElement('div');
+    header.className = 'cat-header';
+
+    const toggle = document.createElement('span');
+    toggle.className = 'cat-toggle';
+    toggle.textContent = '▶';
+    header.appendChild(toggle);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'cat-name';
+    nameSpan.textContent = node.name;
+    header.appendChild(nameSpan);
+
+    const total = countAll(node);
+    if (total > 0) {
+      const cnt = document.createElement('span');
+      cnt.className = 'cat-count';
+      cnt.textContent = total + ' Einträge';
+      header.appendChild(cnt);
+    }
+
+    const phraseArea = document.createElement('div');
+    const catArea    = document.createElement('div');
+
+    const btnPhrase = document.createElement('button');
+    btnPhrase.textContent = '+ ' + cfg.itemLabel;
+    btnPhrase.onclick = e => {
+      e.stopPropagation();
+      showInlineForm(phraseArea, cfg.itemLabel + ' …', text => addPhraseToNode(node.id, text, cfg), cfg);
+    };
+    header.appendChild(btnPhrase);
+
+    const btnCat = document.createElement('button');
+    btnCat.textContent = '+ Kategorie';
+    btnCat.onclick = e => {
+      e.stopPropagation();
+      showInlineForm(catArea, 'Kategoriename …', (name, area) => addSubCat(node.id, name, area, cfg), cfg);
+    };
+    header.appendChild(btnCat);
+
+    const btnDel = document.createElement('button');
+    btnDel.className = 'btn-danger';
+    btnDel.textContent = '✕';
+    btnDel.title = 'Kategorie und alle Inhalte löschen';
+    btnDel.onclick = e => {
+      e.stopPropagation();
+      if (confirm(`Kategorie „${node.name}" und alle Inhalte löschen?`)) {
+        const t = cfg.load(); removeNode(t, node.id); cfg.save(t); cfg.render();
+      }
+    };
+    header.appendChild(btnDel);
+
+    wrap.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'cat-children';
+    body.style.display = 'none';
+
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const collapsed = body.style.display === 'none';
+      body.style.display = collapsed ? '' : 'none';
+      toggle.textContent = collapsed ? '▼' : '▶';
+    });
+    header.style.cursor = 'pointer';
+    header.addEventListener('click', () => toggle.click());
+
+    body.appendChild(phraseArea);
+    body.appendChild(catArea);
+
+    buildPhrases(body, node, cfg);
+    for (const child of node.children) body.appendChild(buildNode(child, false, cfg));
+
+    if (node.phrases.length === 0 && node.children.length === 0) {
+      const emp = document.createElement('div');
+      emp.className = 'empty-note';
+      emp.textContent = '(leer)';
+      body.appendChild(emp);
+    }
+
+    wrap.appendChild(body);
+  } else {
+    if (node.phrases.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'root-phrases';
+      const lbl = document.createElement('div');
+      lbl.className = 'section-label';
+      lbl.textContent = cfg.itemLabel + 'e in /';
+      sec.appendChild(lbl);
+      buildPhrases(sec, node, cfg);
+      wrap.appendChild(sec);
+    }
+
+    const rootBar = document.createElement('div');
+    rootBar.style.cssText = 'display:flex;gap:6px;margin-bottom:0.8rem;';
+
+    const phraseArea2 = document.createElement('div');
+
+    const btnRootPhrase = document.createElement('button');
+    btnRootPhrase.textContent = '+ ' + cfg.itemLabel + ' zu /';
+    btnRootPhrase.onclick = () => showInlineForm(phraseArea2, cfg.itemLabel + ' …', text => addPhraseToNode('root', text, cfg), cfg);
+    rootBar.appendChild(btnRootPhrase);
+
+    wrap.appendChild(rootBar);
+    wrap.appendChild(phraseArea2);
+
+    for (const child of node.children) wrap.appendChild(buildNode(child, false, cfg));
+  }
+
+  return wrap;
+}
+
+function buildPhrases(container, node, cfg) {
+  for (const phrase of node.phrases) {
+    const row = document.createElement('div');
+    row.className = 'phrase-row';
+
+    const txt = document.createElement('span');
+    txt.className = 'phrase-text';
+    txt.textContent = phrase;
+    row.appendChild(txt);
+
+    const del = document.createElement('button');
+    del.className = 'btn-danger';
+    del.textContent = '✕';
+    del.onclick = () => {
+      const t = cfg.load();
+      const cat = findNode(t, node.id);
+      if (cat) { cat.phrases = cat.phrases.filter(p => p !== phrase); cfg.save(t); cfg.render(); }
+    };
+    row.appendChild(del);
+    container.appendChild(row);
+  }
+}
+
+function showInlineForm(area, placeholder, onSave, cfg) {
+  area.innerHTML = '';
+  const form = document.createElement('div');
+  form.className = 'inline-form';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = placeholder;
+
+  const btnSave = document.createElement('button');
+  btnSave.className = 'btn-primary';
+  btnSave.textContent = 'Speichern';
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Abbrechen';
+
+  const save   = () => { const v = input.value.trim(); if (v) { onSave(v, area); } else { cfg.render(); } };
+  const cancel = () => cfg.render();
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); });
+  btnSave.onclick   = save;
+  btnCancel.onclick = cancel;
+
+  form.appendChild(input);
+  form.appendChild(btnSave);
+  form.appendChild(btnCancel);
+  area.appendChild(form);
+  input.focus();
+}
+
+// ── Tree mutations ────────────────────────────────────────────────────────
+
+function addPhraseToNode(catId, text, cfg) {
+  const t = cfg.load();
+  const cat = findNode(t, catId);
+  if (cat && !cat.phrases.includes(text)) { cat.phrases.unshift(text); cfg.save(t); }
+  cfg.render();
+}
+
+function addSubCat(parentId, name, errorArea, cfg) {
+  const t = cfg.load();
+  const parent = findNode(t, parentId);
+  if (parent) {
+    if (parent.children.some(c => c.name === name)) {
+      if (errorArea) showFormError(errorArea, 'Kategorie existiert bereits');
+      return;
+    }
+    parent.children.push({ id: genId(), name, children: [], phrases: [] });
+    cfg.save(t);
+  }
+  cfg.render();
+}
+
+function addRootCategoryFor(inputId, errorId, cfg) {
+  const input = document.getElementById(inputId);
+  const name = input.value.trim();
+  if (!name) return;
+  const t = cfg.load();
+  if (t.children.some(c => c.name === name)) {
+    showBarError(errorId, input, 'Kategorie existiert bereits');
+    return;
+  }
+  t.children.push({ id: genId(), name, children: [], phrases: [] });
+  cfg.save(t);
+  input.value = '';
+  clearBarError(errorId);
+  cfg.render();
+}
+
+function showFormError(area, msg) {
+  let err = area.querySelector('.form-error');
+  if (!err) {
+    err = document.createElement('div');
+    err.className = 'form-error';
+    area.appendChild(err);
+  }
+  err.textContent = msg;
+}
+
+function showBarError(id, refInput, msg) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = id;
+    el.className = 'form-error';
+    refInput.closest('.add-bar').after(el);
+  }
+  el.textContent = msg;
+}
+
+function clearBarError(id) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = '';
+}
+
+// ── Per-tree configs ──────────────────────────────────────────────────────
+
+const sätzeConfig = {
+  load: loadSätzeTree,
+  save: saveSätzeTree,
+  render: () => renderTree(),
+  itemLabel: 'Satz',
+};
+
+const wordsConfig = {
+  load: loadWordsTree,
+  save: saveWordsTree,
+  render: () => renderWordsTree(),
+  itemLabel: 'Wort',
+};
+
+function renderTree() {
+  const tree = loadSätzeTree();
+  const container = document.getElementById('sätze-tree');
+  container.innerHTML = '';
+  container.appendChild(buildNode(tree, true, sätzeConfig));
+}
+
+function renderWordsTree() {
+  const tree = loadWordsTree();
+  const container = document.getElementById('words-tree');
+  container.innerHTML = '';
+  container.appendChild(buildNode(tree, true, wordsConfig));
+}
+
+function addRootCategory() {
+  addRootCategoryFor('new-root-cat', 'new-root-cat-error', sätzeConfig);
+}
+
+function addRootWordsCategory() {
+  addRootCategoryFor('new-words-root-cat', 'new-words-root-cat-error', wordsConfig);
+}
+
+// ── Default word tree merge ───────────────────────────────────────────────
+
+// Map WT_DATA top-level keys to human-readable category names
+const WT_CAT_NAMES = {
+  Häufig:   'Häufig',
+  Verb:     'Verben',
+  Nomen:    'Nomen',
+  Adjektiv: 'Adjektive',
+  Andere:   'Andere',
+};
+
+function mergeDefaults() {
+  const tree = loadWordsTree();
+  let added = 0;
+
+  for (const [topKey, buckets] of Object.entries(WT_DATA)) {
+    const catName = WT_CAT_NAMES[topKey] || topKey;
+
+    // Ensure top-level category exists
+    let topCat = tree.children.find(c => c.name === catName);
+    if (!topCat) {
+      topCat = { id: genId(), name: catName, children: [], phrases: [] };
+      tree.children.push(topCat);
+    }
+
+    for (const [bucketName, words] of Object.entries(buckets)) {
+      // For Häufig: put words directly in the top category (single bucket same name)
+      if (topKey === 'Häufig') {
+        for (const w of words) {
+          if (!topCat.phrases.includes(w)) { topCat.phrases.push(w); added++; }
+        }
+        continue;
+      }
+
+      // All others: bucket becomes a sub-category
+      let subCat = topCat.children.find(c => c.name === bucketName);
+      if (!subCat) {
+        subCat = { id: genId(), name: bucketName, children: [], phrases: [] };
+        topCat.children.push(subCat);
+      }
+
+      for (const w of words) {
+        if (!subCat.phrases.includes(w)) { subCat.phrases.push(w); added++; }
+      }
+    }
+  }
+
+  if (added > 0) { saveWordsTree(tree); renderWordsTree(); }
+
+  const el = document.getElementById('merge-result');
+  el.textContent = added > 0
+    ? `${added} Wörter hinzugefügt.`
+    : 'Alles bereits vorhanden – nichts hinzugefügt.';
+  el.style.color = added > 0 ? '#2a9a4a' : '#888';
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Enter key shortcuts ───────────────────────────────────────────────────
+
+document.getElementById('new-root-cat').addEventListener('keydown', e => { if (e.key === 'Enter') addRootCategory(); });
+document.getElementById('new-words-root-cat').addEventListener('keydown', e => { if (e.key === 'Enter') addRootWordsCategory(); });
+
+// ── Init ──────────────────────────────────────────────────────────────────
+
+renderTree();
+renderWordsTree();
+</script>
+
+</body>
+</html>
