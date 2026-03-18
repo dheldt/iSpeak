@@ -202,6 +202,31 @@ body {
   width: 100%;
 }
 
+/* ── Sätze sub-panel ─────────────────────────────────────── */
+#wheel-sätze {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+}
+
+#st-main {
+  font-size: 8vmin;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  transition: color 0.2s;
+}
+#st-main.flash   { color: #4af; }
+#st-main.st-back { font-weight: 400; }
+#st-main.st-empty { color: #333; font-weight: 400; }
+
 .wt-adj {
   font-size: 5vmin;
   color: #2a2a2a;
@@ -277,7 +302,8 @@ body {
 #wheel.inactive #letter-main,
 #wheel.inactive .adj,
 #wheel.inactive #wt-main,
-#wheel.inactive .wt-adj { color: #222 !important; }
+#wheel.inactive .wt-adj,
+#wheel.inactive #st-main { color: #222 !important; }
 
 #mode-hint {
   position: absolute;
@@ -311,6 +337,7 @@ body {
 #mode-badge.active   { background: #1a3a1a; color: #6f6; border: 1px solid #2a6a2a; }
 #mode-badge.inactive { background: #2a1a1a; color: #a55; border: 1px solid #5a2a2a; }
 #mode-badge.wordtree { background: #1a1a3a; color: #88f; border: 1px solid #2a2a8a; }
+#mode-badge.sätze    { background: #2a1a0a; color: #fa8; border: 1px solid #7a4a1a; }
 
 /* ── Text panel (right column) ────────────────────────────── */
 #text-panel {

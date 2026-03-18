@@ -150,6 +150,8 @@ const cfg = {
   eyeSide:        'right',  // which eye to track: 'right' or 'left'
   soundOn:          true,   // play audio feedback
   calibrated:     false, // set true after first successful calibration
+  showCamera:     false,  // show live video feed in overlay
+  enabledModes:   { inactive: true, wordtree: true, spelling: true, sätze: true },
 };
 
 (function loadCfg() {
@@ -164,13 +166,29 @@ function saveCfg() {
 // Mode state machine
 // Cycles on double-blink: inactive → spelling → wordtree → inactive
 // ─────────────────────────────────────────────────────────────────────────
-const MODES = ['inactive', 'wordtree', 'spelling'];
+const MODES = ['inactive', 'wordtree', 'spelling', 'sätze'];
 let mode = 'inactive';
 
+function activeModes() {
+  return MODES.filter(m => m !== 'inactive' && cfg.enabledModes[m] !== false);
+}
+
+function buildCycle() {
+  const active = activeModes();
+  return cfg.enabledModes.inactive !== false ? ['inactive', ...active] : active;
+}
+
+function modeSwitchingEnabled() {
+  return buildCycle().length > 1;
+}
+
 function cycleMode() {
-  mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+  const cycle = buildCycle();
+  if (cycle.length <= 1) return;
+  // indexOf returns -1 when current mode is not in cycle → lands on index 0
+  mode = cycle[(cycle.indexOf(mode) + 1) % cycle.length];
   applyMode();
-  lastGazeTime = Date.now(); // prevent accidental scroll right after switch
+  lastGazeTime = Date.now();
 }
 
 function applyMode() {
@@ -179,13 +197,16 @@ function applyMode() {
 
   wheel.classList.toggle('inactive', mode === 'inactive');
 
-  badge.classList.remove('active', 'inactive', 'wordtree');
+  badge.classList.remove('active', 'inactive', 'wordtree', 'sätze');
   if (mode === 'inactive') {
     badge.textContent = 'INAKTIV';
     badge.classList.add('inactive');
   } else if (mode === 'spelling') {
     badge.textContent = 'BUCHSTABEN';
     badge.classList.add('active');
+  } else if (mode === 'sätze') {
+    badge.textContent = 'SÄTZE';
+    badge.classList.add('sätze');
   } else {
     badge.textContent = 'WORTBAUM';
     badge.classList.add('wordtree');
@@ -194,15 +215,24 @@ function applyMode() {
   // Show/hide sub-panels
   const spellPanel = document.getElementById('wheel-spelling');
   const wtPanel    = document.getElementById('wheel-wordtree');
+  const stPanel    = document.getElementById('wheel-sätze');
   const crumb      = document.getElementById('wt-breadcrumb');
   if (mode === 'wordtree') {
     spellPanel.style.display = 'none';
     wtPanel.style.display    = 'flex';
+    stPanel.style.display    = 'none';
     crumb.style.display      = 'block';
-    wtReset(); // always restart from root when entering word-tree
+    wtReset();
+  } else if (mode === 'sätze') {
+    spellPanel.style.display = 'none';
+    wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'flex';
+    crumb.style.display      = 'block';
+    stReset();
   } else {
     spellPanel.style.display = '';
     wtPanel.style.display    = 'none';
+    stPanel.style.display    = 'none';
     crumb.style.display      = 'none';
     if (mode === 'spelling') spReset();
   }
@@ -351,6 +381,84 @@ function flashWordTree() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Sätze mode — browse and speak saved phrases
+// ─────────────────────────────────────────────────────────────────────────
+const ST_BACK  = '← Zurück';
+const ST_EMPTY = '(Keine Sätze)';
+
+let stLevel  = 0;
+let stBucket = null;
+let stItems  = [];
+let stIdx    = 0;
+
+function stReset() {
+  stLevel  = 0;
+  stBucket = null;
+  const saved = loadSaved();
+  if (saved.length === 0) {
+    stItems = [ST_EMPTY];
+  } else if (saved.length <= 10) {
+    stItems = [...saved];
+  } else {
+    stItems = savedBucketKeys(saved);
+  }
+  stIdx = 0;
+  renderSätze();
+  updateStBreadcrumb();
+}
+
+function stSelectCurrent() {
+  const chosen = stItems[stIdx];
+  if (chosen === ST_EMPTY) return;
+  if (chosen === ST_BACK) { stReset(); return; }
+  const saved = loadSaved();
+  if (stLevel === 0 && saved.length > 10) {
+    // chosen is a T9 bucket key — drill in
+    stBucket = chosen;
+    stLevel  = 1;
+    stItems  = [ST_BACK, ...savedForBucket(saved, chosen)];
+    stIdx    = 0;
+    renderSätze();
+    updateStBreadcrumb();
+  } else {
+    // chosen is a phrase — speak it
+    addHistory(chosen, 'spoken');
+    tts(chosen);
+    flashSätze();
+  }
+}
+
+function renderSätze() {
+  const total = stItems.length;
+  if (total === 0) return;
+  stIdx = ((stIdx % total) + total) % total;
+  const itemAt = off => stItems[((stIdx + off) % total + total) % total];
+
+  document.getElementById('st-p2').textContent = itemAt(-2);
+  document.getElementById('st-p1').textContent = itemAt(-1);
+
+  const mainEl  = document.getElementById('st-main');
+  const current = itemAt(0);
+  mainEl.textContent = current;
+  mainEl.classList.toggle('st-back',  current === ST_BACK);
+  mainEl.classList.toggle('st-empty', current === ST_EMPTY);
+
+  document.getElementById('st-n1').textContent = itemAt(+1);
+  document.getElementById('st-n2').textContent = itemAt(+2);
+}
+
+function updateStBreadcrumb() {
+  const el = document.getElementById('wt-breadcrumb');
+  el.textContent = stLevel === 0 ? 'Sätze' : `Sätze › ${stBucket}`;
+}
+
+function flashSätze() {
+  const el = document.getElementById('st-main');
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 150);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Render — spelling mode
 // ─────────────────────────────────────────────────────────────────────────
 function renderSpelling() {
@@ -448,6 +556,7 @@ let lastGazeVal   = 0.5;
 let lastEyeClosed = false;
 
 function drawOverlay(lm) {
+  if (!cfg.showCamera) return;
   const W = canvas.width;
   const H = canvas.height;
 
@@ -612,6 +721,9 @@ function handleBlink(dur) {
       showGaze('mid'); sndSelect();
     } else if (mode === 'wordtree') {
       wtSelectCurrent();
+      showGaze('mid'); sndSelect();
+    } else if (mode === 'sätze') {
+      stSelectCurrent();
       showGaze('mid'); sndSelect();
     }
   }
@@ -806,7 +918,7 @@ function onResults(results) {
         closeModeModal();
         cycleMode();
         sndModeChange();
-      } else {
+      } else if (modeSwitchingEnabled()) {
         openModeModal();
       }
     }
@@ -841,6 +953,9 @@ function onResults(results) {
       if (mode === 'spelling') {
         spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length;
         renderSpelling();
+      } else if (mode === 'sätze') {
+        stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length;
+        renderSätze();
       } else {
         wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length;
         renderWordTree();
@@ -851,6 +966,9 @@ function onResults(results) {
       if (mode === 'spelling') {
         spIdx = (spIdx + 1) % spItems.length;
         renderSpelling();
+      } else if (mode === 'sätze') {
+        stIdx = (stIdx + 1) % stItems.length;
+        renderSätze();
       } else {
         wtIdx = (wtIdx + 1) % wtItems.length;
         renderWordTree();
@@ -1010,15 +1128,18 @@ document.addEventListener('keydown', e => {
     cycleMode(); e.preventDefault();
   } else if (e.key === 'ArrowUp' && mode !== 'inactive') {
     if (mode === 'spelling') { spIdx = ((spIdx - 1) % spItems.length + spItems.length) % spItems.length; renderSpelling(); }
+    else if (mode === 'sätze') { stIdx = ((stIdx - 1) % stItems.length + stItems.length) % stItems.length; renderSätze(); }
     else { wtIdx = ((wtIdx - 1) % wtItems.length + wtItems.length) % wtItems.length; renderWordTree(); }
     showGaze('up'); e.preventDefault();
   } else if (e.key === 'ArrowDown' && mode !== 'inactive') {
     if (mode === 'spelling') { spIdx = (spIdx + 1) % spItems.length; renderSpelling(); }
-    else                     { wtIdx = (wtIdx + 1) % wtItems.length; renderWordTree(); }
+    else if (mode === 'sätze') { stIdx = (stIdx + 1) % stItems.length; renderSätze(); }
+    else { wtIdx = (wtIdx + 1) % wtItems.length; renderWordTree(); }
     showGaze('dn'); e.preventDefault();
   } else if ((e.key === 'Enter' || e.key === ' ') && mode !== 'inactive') {
     if (mode === 'spelling') spSelectCurrent();
-    else                     wtSelectCurrent();
+    else if (mode === 'sätze') stSelectCurrent();
+    else wtSelectCurrent();
     showGaze('mid'); e.preventDefault();
   }
 });
@@ -1047,6 +1168,35 @@ document.addEventListener('keydown', e => {
   soundBtn.addEventListener('click', () => {
     cfg.soundOn = !cfg.soundOn;
     updateSoundBtn();
+    saveCfg();
+  });
+
+  ['inactive', 'wordtree', 'spelling', 'sätze'].forEach(m => {
+    const cb = document.getElementById(`s-m-${m}`);
+    cb.checked = cfg.enabledModes[m] !== false;
+    cb.addEventListener('change', () => {
+      cfg.enabledModes[m] = cb.checked;
+      if (mode === m && !cfg.enabledModes[m]) {
+        // Current mode disabled — jump to first available mode, or inactive if none
+        mode = activeModes()[0] ?? 'inactive';
+        applyMode();
+      }
+      saveCfg();
+    });
+  });
+
+  const camBtn = document.getElementById('cam-btn');
+  function updateCamBtn() {
+    camBtn.textContent = cfg.showCamera ? '📷 Kamera AN' : '📷 Kamera AUS';
+    camBtn.classList.toggle('off', !cfg.showCamera);
+    const display = cfg.showCamera ? '' : 'none';
+    canvas.style.display = display;
+    document.getElementById('cam-wrap').style.display = display;
+  }
+  updateCamBtn();
+  camBtn.addEventListener('click', () => {
+    cfg.showCamera = !cfg.showCamera;
+    updateCamBtn();
     saveCfg();
   });
 
