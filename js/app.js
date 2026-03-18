@@ -841,7 +841,7 @@ function onResults(results) {
       if (wizardSamples.length >= CALIB_FRAMES_GAZE) {
         straightGazeMean = arrMean(wizardSamples.map(s => s.g));
         closedEarMean    = arrMean(wizardSamples.map(s => s.e)); // open EAR, stored temporarily
-        wizardStep = 2; wizardSamples = []; wizardShow(2);
+        wizardStep = 2; wizardSamples = []; sndSelect(); wizardShow(2);
       }
     }
   } else if (wizardStep === 2) {
@@ -858,7 +858,7 @@ function onResults(results) {
           document.getElementById('s-ear').value = cfg.earThresh;
           document.getElementById('v-ear').textContent = cfg.earThresh.toFixed(2);
           closedEarMean = closedEarNow;
-          wizardStep = 3; wizardSamples = []; wizardShow(3);
+          wizardStep = 3; wizardSamples = []; sndSelect(); wizardShow(3);
         }
       }
     }
@@ -869,7 +869,7 @@ function onResults(results) {
       if (wizardSamples.length >= CALIB_FRAMES_GAZE) {
         const upMean = arrMean(wizardSamples);
         cfg.gazeUpThresh = parseFloat(((straightGazeMean + upMean) / 2).toFixed(4));
-        wizardStep = 4; wizardSamples = []; wizardShow(4);
+        wizardStep = 4; wizardSamples = []; sndSelect(); wizardShow(4);
       }
     }
   } else if (wizardStep === 4) {
@@ -882,7 +882,7 @@ function onResults(results) {
         cfg.gazeZone = parseFloat(((Math.abs(cfg.gazeUpThresh) + cfg.gazeDownThresh) / 2).toFixed(4));
         document.getElementById('s-gz').value = cfg.gazeZone;
         document.getElementById('v-gz').textContent = cfg.gazeZone.toFixed(3);
-        wizardStep = 0; wizardClose();
+        wizardStep = 0; sndModeChange(); wizardClose();
       }
     }
   }
