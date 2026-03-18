@@ -94,11 +94,13 @@ function tgHandleMessage(msg) {
   tgRenderMessages();
   tgUpdateBadge(true);
 
-  // Auto-play
+  // Auto-play with sender announcement
+  const timeStr = new Date(entry.date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   if (entry.voiceId) {
+    tts(`Sprachnachricht von ${entry.fromName} um ${timeStr}.`);
     tgPlayVoice(entry.voiceId);
   } else if (entry.text) {
-    tts(entry.text);
+    tts(`Nachricht von ${entry.fromName} um ${timeStr}: ${entry.text}`);
   }
 }
 
@@ -246,7 +248,7 @@ function tgUpdateSendBtn() {
   if (btn) btn.style.display = (cfg.tgToken || '').trim() ? '' : 'none';
 }
 
-// ── Init (called from app.js init) ────────────────────────────────────────
+// ── Init (runs after telegram.js is fully loaded) ─────────────────────────
 function initTelegram() {
   // Ensure contacts is always an array (guard against corrupted localStorage)
   if (!Array.isArray(cfg.tgContacts)) cfg.tgContacts = [];
@@ -349,3 +351,5 @@ function initTelegram() {
               (cfg.tgToken || '').trim() ? 'ok'     : '');
   tgStartPolling();
 }
+
+initTelegram();

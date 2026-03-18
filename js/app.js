@@ -1158,7 +1158,6 @@ document.addEventListener('keydown', e => {
   renderText();
   bindSettings();
   applyMode();
-  initTelegram();
 
   document.getElementById('speak-btn').addEventListener('click', () => {
     if (buf.trim()) { addHistory(buf, 'spoken'); tts(buf); buf = ''; renderText(); }
