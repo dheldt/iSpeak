@@ -29,7 +29,7 @@ let spIdx   = 0;
 function spReset() {
   spLevel = 0;
   spGroup = null;
-  spItems = [...SP_TOP];
+  spItems = SP_TOP.filter(i => i !== 'Telegram' || cfg.enabledModes?.telegram);
   spIdx   = 0;
   renderSpelling();
 }
@@ -129,7 +129,7 @@ function acGetSuggestions() {
 
 function acBuildItems() {
   const sugg = acGetSuggestions().map(s => ({ _type: 'suggestion', text: s }));
-  return [...T9_KEYS, ...sugg, ...SP_SPECIALS];
+  return [...T9_KEYS, ...sugg, ...SP_SPECIALS.filter(i => i !== 'Telegram' || cfg.enabledModes?.telegram)];
 }
 
 function acItemLabel(item) {
@@ -240,8 +240,6 @@ function addHistory(text, type) {
 // Saved phrases  (persisted to localStorage)
 // ─────────────────────────────────────────────────────────────────────────
 const SAVED_KEY     = 'ispeak_saved';
-const WT_SAVED_CAT  = 'Gespeichert';
-
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch { return []; }
 }
@@ -260,16 +258,6 @@ function phraseT9Key(phrase) {
   return T9_GROUPS.find(g => g.chars.includes(first))?.key ?? null;
 }
 
-// Ordered list of T9 bucket keys that actually have saved phrases.
-function savedBucketKeys(saved) {
-  const seen = new Set(saved.map(phraseT9Key).filter(Boolean));
-  return T9_KEYS.filter(k => seen.has(k));
-}
-
-// Saved phrases whose first character falls in the given T9 bucket.
-function savedForBucket(saved, bucketKey) {
-  return saved.filter(p => phraseT9Key(p) === bucketKey);
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Sätze category tree  (persisted separately from the flat word list)
@@ -503,6 +491,10 @@ function cycleMode() {
 }
 
 function applyMode() {
+  // Close any open modal when switching modes
+  if (catModalOpen) catModalClose();
+  if (typeof tgModalClose === 'function' && tgModalOpen) tgModalClose();
+
   const wheel = document.getElementById('wheel');
   const badge = document.getElementById('mode-badge');
 
@@ -617,7 +609,7 @@ function wtReset() {
   wtLevel    = 0;
   wtCategory = null;
   wtBucket   = null;
-  wtItems    = [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM, WT_KATEG];
+  wtItems    = [...Object.keys(WT_DATA), WT_SPEAK, ...(cfg.enabledModes?.telegram ? [WT_TELEGRAM] : []), WT_KATEG];
   wtIdx      = 0;
   renderWordTree();
   renderBreadcrumb();
@@ -644,36 +636,21 @@ function wtSelectCurrent() {
   }
   if (wtLevel === 0) {
     wtCategory = chosen;
-    if (chosen === WT_SAVED_CAT) {
-      const saved = loadSaved();
-      if (!saved.length) return;           // nothing saved yet — stay put
-      if (saved.length <= 10) {
-        wtBucket = WT_SAVED_CAT;
-        wtLevel  = 2;
-        wtItems  = [WT_BACK, ...saved];
-      } else {
-        wtLevel  = 1;
-        wtItems  = [WT_BACK, ...savedBucketKeys(saved)];
-      }
+    const buckets = Object.keys(WT_DATA[wtCategory]);
+    if (buckets.length === 1) {
+      // Skip bucket level — go straight to words
+      wtBucket = buckets[0];
+      wtLevel  = 2;
+      wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
     } else {
-      const buckets = Object.keys(WT_DATA[wtCategory]);
-      if (buckets.length === 1) {
-        // Skip bucket level — go straight to words
-        wtBucket = buckets[0];
-        wtLevel  = 2;
-        wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
-      } else {
-        wtLevel  = 1;
-        wtItems  = [WT_BACK, ...buckets];
-      }
+      wtLevel  = 1;
+      wtItems  = [WT_BACK, ...buckets];
     }
     wtIdx = 0;
   } else if (wtLevel === 1) {
     wtBucket = chosen;
     wtLevel  = 2;
-    wtItems  = wtCategory === WT_SAVED_CAT
-      ? [WT_BACK, ...savedForBucket(loadSaved(), chosen)]
-      : [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
+    wtItems  = [WT_BACK, ...WT_DATA[wtCategory][wtBucket]];
     wtIdx    = 0;
   } else {
     // Level 2: actual word — append to buffer, then return to top level
@@ -688,20 +665,11 @@ function wtSelectCurrent() {
 }
 
 function wtGoBack() {
-  const rootItems = () => [...Object.keys(WT_DATA), WT_SAVED_CAT, WT_SPEAK, WT_TELEGRAM, WT_KATEG];
+  const rootItems = () => [...Object.keys(WT_DATA), WT_SPEAK, ...(cfg.enabledModes?.telegram ? [WT_TELEGRAM] : []), WT_KATEG];
   if (wtLevel === 2) {
-    // For Gespeichert with ≤10 entries we skipped level 1 — go straight to root.
-    if (wtCategory === WT_SAVED_CAT && loadSaved().length <= 10) {
-      wtLevel    = 0;
-      wtCategory = null;
-      wtItems    = rootItems();
-    } else {
-      wtLevel  = 1;
-      wtBucket = null;
-      wtItems  = wtCategory === WT_SAVED_CAT
-        ? [WT_BACK, ...savedBucketKeys(loadSaved())]
-        : [WT_BACK, ...Object.keys(WT_DATA[wtCategory])];
-    }
+    wtLevel  = 1;
+    wtBucket = null;
+    wtItems  = [WT_BACK, ...Object.keys(WT_DATA[wtCategory])];
     wtIdx = 0;
   } else if (wtLevel === 1) {
     wtLevel    = 0;
@@ -775,7 +743,8 @@ function stBuildItems(catId) {
     items.push(...cat.children);
     items.push(...cat.phrases);
   }
-  items.push(ST_SPEAK, ST_TELEGRAM, ST_SAVE);
+  if (cfg.enabledModes?.telegram) items.push(ST_TELEGRAM);
+  items.push(ST_SPEAK, ST_SAVE);
   return items;
 }
 
@@ -2147,6 +2116,16 @@ function wordsInitDefaults() {
       // Restart Telegram polling when its mode is toggled
       if (m === 'telegram' && typeof tgStopPolling !== 'undefined') {
         tgStopPolling(); tgStartPolling();
+      }
+      if (m === 'telegram' && typeof tgUpdateSendBtn !== 'undefined') {
+        tgUpdateSendBtn();
+      }
+      // Redraw the current wheel in case it includes Telegram as an action
+      if (m === 'telegram') {
+        if (mode === 'spelling')      { spReset(); }
+        else if (mode === 'autocomplete') { acItems = acBuildItems(); acIdx = 0; renderAutocomplete(); }
+        else if (mode === 'wordtree') { wtReset(); }
+        else if (mode === 'sätze')    { stItems = stBuildItems(stStack[stStack.length - 1]); stIdx = 0; renderSätze(); }
       }
       saveCfg();
     });

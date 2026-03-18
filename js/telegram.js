@@ -377,7 +377,7 @@ function tgFmtInterval(sec) {
 // ── Update send button visibility ─────────────────────────────────────────
 function tgUpdateSendBtn() {
   const btn = document.getElementById('tg-send-btn');
-  if (btn) btn.style.display = (cfg.tgToken || '').trim() ? '' : 'none';
+  if (btn) btn.style.display = (cfg.tgToken || '').trim() && cfg.enabledModes?.telegram ? '' : 'none';
 }
 
 // ── tgInitiateSend — entry point for all "send to Telegram" actions ────────
