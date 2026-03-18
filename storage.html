@@ -13,6 +13,13 @@
     <a href="index.html">← Zurück zur App</a>
   </header>
 
+  <div class="backup-bar">
+    <button class="btn-primary" onclick="exportBackup()">⬇ Backup exportieren</button>
+    <button onclick="document.getElementById('import-file').click()">⬆ Backup importieren</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importBackup(this)">
+    <span id="backup-status"></span>
+  </div>
+
   <div class="tabs">
     <div class="tab active" data-tab="wörter">Wörter</div>
     <div class="tab"        data-tab="sätze">Sätze</div>
@@ -494,6 +501,73 @@ function mergeDefaults() {
     ? `${added} Wörter hinzugefügt.`
     : 'Alles bereits vorhanden – nichts hinzugefügt.';
   el.style.color = added > 0 ? '#2a9a4a' : '#888';
+  setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────
+
+const BACKUP_KEYS = [
+  'ispeak',
+  'ispeak_sätze',
+  'ispeak_saved',
+  'ispeak_words',
+  'ispeak_tg_messages',
+  'ispeak_tg_offset',
+];
+
+function exportBackup() {
+  const data = { _version: 1, _exported: new Date().toISOString() };
+  for (const key of BACKUP_KEYS) {
+    const val = localStorage.getItem(key);
+    if (val !== null) data[key] = val;
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const ts   = new Date().toISOString().slice(0, 10);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `ispeak-backup-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showBackupStatus('Backup exportiert.', '#2a9a4a');
+}
+
+function importBackup(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let data;
+    try { data = JSON.parse(e.target.result); }
+    catch { showBackupStatus('Fehler: ungültige JSON-Datei.', '#c00'); return; }
+
+    if (!data._version) {
+      showBackupStatus('Fehler: keine gültige iSpeak-Backup-Datei.', '#c00');
+      return;
+    }
+
+    if (!confirm('Aktuellen Speicher überschreiben und Backup wiederherstellen?')) return;
+
+    for (const key of BACKUP_KEYS) {
+      if (key in data) {
+        localStorage.setItem(key, data[key]);
+      } else {
+        localStorage.removeItem(key);
+      }
+    }
+
+    renderTree();
+    renderWordsTree();
+    showBackupStatus('Backup wiederhergestellt.', '#2a9a4a');
+  };
+  reader.readAsText(file);
+}
+
+function showBackupStatus(msg, color) {
+  const el = document.getElementById('backup-status');
+  el.textContent = msg;
+  el.style.color = color;
   setTimeout(() => { el.textContent = ''; }, 4000);
 }
 

@@ -28,6 +28,7 @@
     <li><a href="#telegram">Modus: Telegram</a></li>
     <li><a href="#verwalten">Modus: Verwalten</a></li>
     <li><a href="#speicher">Speicher verwalten</a></li>
+    <li><a href="#backup">Datensicherung (Backup)</a></li>
     <li><a href="#einstellungen">Einstellungen</a></li>
     <li><a href="#tastatur">Tastatur-Fallback</a></li>
   </ol>
@@ -401,8 +402,43 @@
 </section>
 
 <!-- ── 12 ── -->
+<section id="backup">
+  <h2>12. Datensicherung (Backup)</h2>
+  <p>
+    Alle Daten von iSpeak – Wörter, Sätze, Kategorien, Einstellungen und der Telegram-Verlauf – werden ausschließlich im lokalen Browserspeicher (<code>localStorage</code>) des Geräts abgelegt. Dieser Speicher kann verloren gehen, wenn der Browser-Cache geleert wird, der Browser deinstalliert wird, das Gerät zurückgesetzt oder ausgetauscht wird oder ein Systemfehler auftritt.
+  </p>
+
+  <div class="note">
+    <strong>Wichtig – regelmäßige Backups sind unbedingt empfohlen.</strong> Alle Wörter, Sätze und Kategorien, die über die Augensteuerung mühsam aufgebaut wurden, können bei einem Datenverlust nicht automatisch wiederhergestellt werden. Das erneute Aufbauen einer persönlichen Wort- und Satzbibliothek über die Augensteuerung allein ist äußerst aufwändig und zeitintensiv. Ein regelmäßig erstelltes Backup schützt vor diesem Verlust.
+  </div>
+
+  <h3>Backup erstellen (Export)</h3>
+  <p>
+    Auf der Seite <a href="storage.html"><strong>Speicher verwalten</strong></a> findet sich oben die Schaltfläche <strong>⬇ Backup exportieren</strong>. Ein Klick darauf lädt eine JSON-Datei mit dem Namen <code>ispeak-backup-DATUM.json</code> herunter. Diese Datei enthält alle gespeicherten Daten und sollte an einem sicheren Ort aufbewahrt werden (z. B. Cloud-Speicher, E-Mail an sich selbst, USB-Stick).
+  </p>
+  <p>
+    Das Backup enthält:
+  </p>
+  <ul>
+    <li>Alle Einstellungen (Kalibrierung, Empfindlichkeit, aktivierte Modi, Telegram-Zugangsdaten)</li>
+    <li>Die gesamte Wörter-Bibliothek mit Kategoriestruktur</li>
+    <li>Die gesamte Satz-Bibliothek mit Kategoriestruktur</li>
+    <li>Den Telegram-Nachrichtenverlauf</li>
+  </ul>
+
+  <h3>Backup wiederherstellen (Import)</h3>
+  <p>
+    Über <strong>⬆ Backup importieren</strong> auf der Seite <a href="storage.html">Speicher verwalten</a> lässt sich eine zuvor exportierte Backup-Datei auswählen. Nach einer Bestätigungsabfrage werden alle Daten wiederhergestellt und die Ansicht aktualisiert. Der vorherige Speicherinhalt wird dabei vollständig überschrieben.
+  </p>
+
+  <div class="tip">
+    <strong>Empfehlung:</strong> Backups am besten von einer pflegenden Person oder einem Angehörigen regelmäßig – z. B. einmal pro Woche – über einen Computer oder ein Tablet erstellt und gespeichert werden. Der Nutzer selbst muss dafür nicht aktiv werden.
+  </div>
+</section>
+
+<!-- ── 13 ── -->
 <section id="einstellungen">
-  <h2>12. Einstellungen</h2>
+  <h2>13. Einstellungen</h2>
   <p>
     Die Einstellungen öffnen sich über den <strong>⚙ Settings</strong>-Knopf unten links. Sie sind in folgende Bereiche gegliedert:
   </p>
@@ -432,9 +468,9 @@
   </table>
 </section>
 
-<!-- ── 13 ── -->
+<!-- ── 14 ── -->
 <section id="tastatur">
-  <h2>13. Tastatur-Fallback</h2>
+  <h2>14. Tastatur-Fallback</h2>
   <p>
     Für Tests oder bei vorübergehend eingeschränktem Eye-Tracking kann iSpeak auch per Tastatur bedient werden:
   </p>

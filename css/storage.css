@@ -18,6 +18,22 @@ header h1 { font-size: 1.4rem; }
 header a   { font-size: 0.85rem; color: #555; text-decoration: none; }
 header a:hover { text-decoration: underline; }
 
+/* ── Backup bar ──────────────────────────────────────── */
+.backup-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.2rem;
+  padding: 0.6rem 0.8rem;
+  background: #fff;
+  border: 1px solid #dde;
+  border-radius: 7px;
+}
+#backup-status {
+  font-size: 0.85rem;
+  margin-left: 0.3rem;
+}
+
 /* ── Tabs ────────────────────────────────────────────── */
 .tabs {
   display: flex;
