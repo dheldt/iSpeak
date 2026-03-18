@@ -711,13 +711,15 @@ function flashSätze() {
 const CAT_HIER = '✓ Hier';
 const CAT_BACK = '← Zurück';
 
-let catModalOpen       = false;
-let catModalCallback   = null;
-let catModalStack      = ['root'];
-let catModalItems      = [];
-let catModalIdx        = 0;
-let catModalTreeLoader = sätzeTreeLoad;
-let catModalTreeFind   = sätzeFind;
+let catModalOpen         = false;
+let catModalCallback     = null;
+let catModalStack        = ['root'];
+let catModalItems        = [];
+let catModalIdx          = 0;
+let catModalTreeLoader   = sätzeTreeLoad;
+let catModalTreeFind     = sätzeFind;
+let catModalPhraseMode   = false;   // when true: list phrases, no CAT_HIER
+let catModalPhraseSelect = null;    // callback(phrase, catId)
 
 function catModalBuildItems() {
   const catId = catModalStack[catModalStack.length - 1];
@@ -725,20 +727,41 @@ function catModalBuildItems() {
   const cat   = catModalTreeFind(tree, catId);
   const items = [];
   if (catModalStack.length > 1) items.push(CAT_BACK);
-  items.push(CAT_HIER);
-  if (cat) items.push(...cat.children);
+  if (!catModalPhraseMode) items.push(CAT_HIER);
+  if (cat) {
+    items.push(...cat.children);
+    if (catModalPhraseMode)
+      for (const p of cat.phrases) items.push({ _type: 'phrase', text: p, catId });
+  }
   return items;
 }
 
 function openCatModal(callback, treeLoader, treeFind, title) {
-  catModalCallback   = callback;
-  catModalTreeLoader = treeLoader || sätzeTreeLoad;
-  catModalTreeFind   = treeFind   || sätzeFind;
-  catModalStack      = ['root'];
-  catModalItems      = catModalBuildItems();
-  catModalIdx        = catModalItems.indexOf(CAT_HIER);
-  catModalOpen       = true;
+  catModalCallback     = callback;
+  catModalPhraseMode   = false;
+  catModalPhraseSelect = null;
+  catModalTreeLoader   = treeLoader || sätzeTreeLoad;
+  catModalTreeFind     = treeFind   || sätzeFind;
+  catModalStack        = ['root'];
+  catModalItems        = catModalBuildItems();
+  catModalIdx          = Math.max(0, catModalItems.indexOf(CAT_HIER));
+  catModalOpen         = true;
   document.getElementById('cat-modal-title').textContent = title || 'Kategorie wählen';
+  document.getElementById('cat-modal').classList.add('open');
+  renderCatModal();
+}
+
+function openCatModalPhrases(phraseCallback, treeLoader, treeFind, title, startCatId) {
+  catModalCallback     = null;
+  catModalPhraseMode   = true;
+  catModalPhraseSelect = phraseCallback;
+  catModalTreeLoader   = treeLoader || sätzeTreeLoad;
+  catModalTreeFind     = treeFind   || sätzeFind;
+  catModalStack        = [startCatId || 'root'];
+  catModalItems        = catModalBuildItems();
+  catModalIdx          = 0;
+  catModalOpen         = true;
+  document.getElementById('cat-modal-title').textContent = title || 'Eintrag wählen';
   document.getElementById('cat-modal').classList.add('open');
   renderCatModal();
 }
@@ -759,7 +782,7 @@ function catModalSelect() {
   if (chosen === CAT_BACK) {
     catModalStack.pop();
     catModalItems = catModalBuildItems();
-    catModalIdx   = catModalItems.indexOf(CAT_HIER);
+    catModalIdx   = Math.max(0, catModalItems.indexOf(CAT_HIER));
     renderCatModal();
     return;
   }
@@ -769,10 +792,17 @@ function catModalSelect() {
     if (catModalCallback) catModalCallback(catId);
     return;
   }
+  // Phrase item in phrase mode
+  if (catModalPhraseMode && chosen && typeof chosen === 'object' && chosen._type === 'phrase') {
+    catModalClose();
+    catModalPhraseMode = false;
+    if (catModalPhraseSelect) catModalPhraseSelect(chosen.text, chosen.catId);
+    return;
+  }
   // Sub-category — drill in
   catModalStack.push(chosen.id);
   catModalItems = catModalBuildItems();
-  catModalIdx   = catModalItems.indexOf(CAT_HIER);
+  catModalIdx   = Math.max(0, catModalItems.indexOf(CAT_HIER));
   renderCatModal();
 }
 
@@ -787,6 +817,7 @@ function renderCatModal() {
   const itemAt = off => catModalItems[((catModalIdx + off) % total + total) % total];
   const label  = item => {
     if (item === CAT_HIER) return catModalCurrentPath();
+    if (typeof item === 'object' && item._type === 'phrase') return item.text;
     return typeof item === 'string' ? item : '▶ ' + item.name;
   };
 
@@ -841,14 +872,6 @@ function mgRebuildItems() {
     case 'sätze-phrase':
       mgItems = [MG_BACK, MG_DELETE];
       break;
-    case 'sätze-pick-phrase': {
-      const tree  = sätzeTreeLoad();
-      const cat   = sätzeFind(tree, frame.catId);
-      const items = [MG_BACK];
-      if (cat) for (const p of cat.phrases) items.push({ _type: 'phrase', text: p, catId: frame.catId });
-      mgItems = items;
-      break;
-    }
     case 'wörter': {
       const hasBuf = buf.trim().length > 0;
       mgItems = [MG_BACK, ...(hasBuf ? [MG_NEW_CAT, MG_RENAME_CAT] : []), MG_MOVE_CAT, MG_MOVE_WORD];
@@ -860,14 +883,6 @@ function mgRebuildItems() {
     case 'wört-word':
       mgItems = [MG_BACK, MG_DELETE];
       break;
-    case 'wörter-pick-phrase': {
-      const tree  = wordsTreeLoad();
-      const cat   = wordsFind(tree, frame.catId);
-      const items = [MG_BACK];
-      if (cat) for (const p of cat.phrases) items.push({ _type: 'word', text: p, catId: frame.catId });
-      mgItems = items;
-      break;
-    }
     default:
       mgItems = [MG_BACK];
   }
@@ -986,39 +1001,25 @@ function mgSelectCurrent() {
 
   if (chosen === MG_MOVE_PHRASE && frame.type === 'sätze') {
     openCatModal(sourceCatId => {
-      mgStack.push({ type: 'sätze-pick-phrase', catId: sourceCatId });
-      mgRebuildItems();
+      openCatModalPhrases((phrase, fromCatId) => {
+        openCatModal(toCatId => {
+          sätzeMovePhraseToCategory(phrase, fromCatId, toCatId);
+          mgRebuildItems(); flashManage();
+        }, null, null, `„${phrase.length > 20 ? phrase.slice(0,20)+'…' : phrase}" verschieben nach:`);
+      }, null, null, 'Satz auswählen:', sourceCatId);
     }, null, null, 'Quellkategorie wählen:');
     return;
   }
 
   if (chosen === MG_MOVE_WORD && frame.type === 'wörter') {
     openCatModal(sourceCatId => {
-      mgStack.push({ type: 'wörter-pick-phrase', catId: sourceCatId });
-      mgRebuildItems();
+      openCatModalPhrases((word, fromCatId) => {
+        openCatModal(toCatId => {
+          wordsMovePhraseToCategory(word, fromCatId, toCatId);
+          mgRebuildItems(); flashManage();
+        }, wordsTreeLoad, wordsFind, `„${word}" verschieben nach:`);
+      }, wordsTreeLoad, wordsFind, 'Wort auswählen:', sourceCatId);
     }, wordsTreeLoad, wordsFind, 'Quellkategorie wählen:');
-    return;
-  }
-
-  if (frame.type === 'sätze-pick-phrase' && typeof chosen === 'object' && chosen._type === 'phrase') {
-    const { text, catId } = chosen;
-    openCatModal(toCatId => {
-      sätzeMovePhraseToCategory(text, catId, toCatId);
-      mgStack.pop();
-      mgRebuildItems();
-      flashManage();
-    }, null, null, `„${text.length > 20 ? text.slice(0,20)+'…' : text}" verschieben nach:`);
-    return;
-  }
-
-  if (frame.type === 'wörter-pick-phrase' && typeof chosen === 'object' && chosen._type === 'word') {
-    const { text, catId } = chosen;
-    openCatModal(toCatId => {
-      wordsMovePhraseToCategory(text, catId, toCatId);
-      mgStack.pop();
-      mgRebuildItems();
-      flashManage();
-    }, wordsTreeLoad, wordsFind, `„${text}" verschieben nach:`);
     return;
   }
 
@@ -1906,7 +1907,29 @@ function bindWheelClicks() {
 // ─────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────
+const WT_CAT_NAMES = { Häufig: 'Häufig', Verb: 'Verben', Nomen: 'Nomen', Adjektiv: 'Adjektive', Andere: 'Andere' };
+
+function wordsInitDefaults() {
+  const tree = wordsTreeLoad();
+  if (tree.children.length > 0) return;
+  for (const [topKey, buckets] of Object.entries(WT_DATA)) {
+    const catName = WT_CAT_NAMES[topKey] || topKey;
+    const topCat  = { id: sätzeGenId(), name: catName, children: [], phrases: [] };
+    tree.children.push(topCat);
+    for (const [bucketName, words] of Object.entries(buckets)) {
+      if (topKey === 'Häufig') {
+        for (const w of words) topCat.phrases.push(w);
+      } else {
+        const sub = { id: sätzeGenId(), name: bucketName, children: [], phrases: [...words] };
+        topCat.children.push(sub);
+      }
+    }
+  }
+  wordsTreeSave(tree);
+}
+
 (function init() {
+  wordsInitDefaults();
   spReset();
   renderText();
   bindSettings();

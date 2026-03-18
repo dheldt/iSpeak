@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iSpeak – Über die App</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f4f4f6;
+      color: #1a1a1a;
+      padding: 2rem 1.5rem;
+      max-width: 760px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      border-bottom: 2px solid #d8d8e0;
+      padding-bottom: 1rem;
+    }
+    header h1 { font-size: 1.6rem; }
+    header a   { font-size: 0.85rem; color: #555; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    h2 { font-size: 1.15rem; margin: 1.8rem 0 0.5rem; color: #2a2a5a; }
+    p  { margin-bottom: 0.9rem; }
+    ul { padding-left: 1.4rem; margin-bottom: 0.9rem; }
+    li { margin-bottom: 0.35rem; }
+    .lead {
+      font-size: 1.05rem;
+      color: #333;
+      background: #fff;
+      border-left: 4px solid #4060e0;
+      padding: 0.9rem 1.1rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1.5rem;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #d8d8e0;
+      font-size: 0.82rem;
+      color: #888;
+    }
+    footer a { color: #555; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>iSpeak</h1>
+  <a href="index.html">← Zurück zur App</a>
+  <a href="anleitung.html">Anleitung</a>
+</header>
+
+<div class="lead">
+  iSpeak ist eine barrierefreie Kommunikationshilfe für Menschen, die ihre Stimme verloren haben oder ihre Hände nicht mehr einsetzen können – steuerbar allein durch Augenbewegungen und Blinzeln.
+</div>
+
+<h2>Was ist iSpeak?</h2>
+<p>
+  iSpeak ist eine quelloffene Web-Anwendung zur unterstützten Kommunikation (AAC – Augmentative and Alternative Communication). Sie läuft vollständig im Browser, benötigt keine Installation und speichert alle Daten lokal auf dem Gerät – es werden keine persönlichen Daten an Server übertragen.
+</p>
+<p>
+  Die App richtet sich an Menschen mit schweren motorischen Einschränkungen, etwa durch ALS (Amyotrophe Lateralsklerose), Locked-in-Syndrom, Schlaganfall oder ähnliche Erkrankungen. Mit einer einfachen Frontkamera lässt sich die gesamte Oberfläche ohne Hände bedienen.
+</p>
+
+<h2>Wie funktioniert die Steuerung?</h2>
+<p>
+  iSpeak nutzt die Kamera des Geräts, um die Augen in Echtzeit zu verfolgen (Eye-Tracking via MediaPipe FaceMesh). Die Bedienung erfolgt über drei Gesten:
+</p>
+<ul>
+  <li><strong>Blick nach oben</strong> – scrollt die Auswahl nach oben</li>
+  <li><strong>Blick nach unten</strong> – scrollt die Auswahl nach unten</li>
+  <li><strong>Blinzeln</strong> – bestätigt die aktuell angezeigte Option</li>
+</ul>
+<p>
+  Zum Wechsel zwischen den Modi hält man das Auge für ca. 3 Sekunden geschlossen. Ein Kalibrierungsassistent hilft dabei, das System auf die individuellen Augenbewegungen abzustimmen.
+</p>
+
+<h2>Was kann iSpeak?</h2>
+<ul>
+  <li><strong>Buchstabieren</strong> – Wörter und Sätze über eine T9-ähnliche Buchstabenauswahl zusammenstellen</li>
+  <li><strong>Wortbaum</strong> – vordefinierte Wörter nach Kategorien (Verben, Nomen, Adjektive u. a.) schnell einfügen</li>
+  <li><strong>Sätze</strong> – gespeicherte Phrasen aus einer eigenen Bibliothek abrufen</li>
+  <li><strong>Sprechen</strong> – den zusammengestellten Text per Text-to-Speech vorlesen lassen</li>
+  <li><strong>Telegram</strong> – Nachrichten direkt an Kontakte senden und empfangen</li>
+  <li><strong>Verwalten</strong> – Wörter und Sätze in Kategorien organisieren, umbenennen und verschieben</li>
+</ul>
+
+<h2>Wo werden die Daten gespeichert?</h2>
+<p>
+  Alle Wörter, Sätze, Kategorien und Einstellungen werden ausschließlich im lokalen Speicher des Browsers (<code>localStorage</code>) gespeichert. Es findet keine Übertragung an externe Server statt. Die Kamerabilder werden ausschließlich lokal im Browser verarbeitet und nie gespeichert oder übertragen.
+</p>
+<p>
+  Die Verwaltung der gespeicherten Inhalte ist über <a href="storage.html">Speicher verwalten</a> möglich.
+</p>
+
+<h2>Technologie</h2>
+<ul>
+  <li>Reines HTML, CSS und JavaScript – keine Frameworks, keine Abhängigkeiten außer MediaPipe</li>
+  <li>Eye-Tracking: <a href="https://google.github.io/mediapipe/" target="_blank" rel="noopener">Google MediaPipe FaceMesh</a></li>
+  <li>Text-to-Speech: Web Speech API des Browsers</li>
+  <li>Messaging: Telegram Bot API (optional, erfordert eigenen Bot-Token)</li>
+</ul>
+
+<h2>Lizenz &amp; Quellcode</h2>
+<p>
+  iSpeak ist freie Software unter der <strong>MIT-Lizenz</strong>. Der Quellcode ist auf
+  <a href="https://github.com/dheldt/iSpeak/" target="_blank" rel="noopener">GitHub</a> verfügbar.
+  Beiträge und Verbesserungsvorschläge sind willkommen.
+</p>
+<p>Entwickelt von <strong>Daniel Heldt</strong>, 2026.</p>
+
+<footer>
+  <a href="index.html">App starten</a> ·
+  <a href="anleitung.html">Anleitung</a> ·
+  <a href="storage.html">Speicher verwalten</a> ·
+  <a href="impressum.html">Impressum</a> ·
+  <a href="datenschutzerklaerung.html">Datenschutz</a>
+</footer>
+
+</body>
+</html>
